@@ -11,7 +11,7 @@
   const TZ = "America/New_York";
   const QUIZ_UNLOCK = 6; // cards read before the recall quiz opens
   const PTS = { readLong: 3, readShort: 1, right: 8, wrong: 2, opinion: 5, reflect: 5, recallRight: 10, recallWrong: 2, complete: 20, mission: [2, 6, 10], confused: 1, ask: 3 };
-  const CAT = { basics: "Foundations", finance: "Finance", tech: "Tech", health: "Health", world: "World", reasoning: "Reasoning", skills: "Life skills", social: "People skills" };
+  const CAT = { basics: "Foundations", local: "Tampa Bay", science: "Science", climate: "Climate", civics: "US & Civics", culture: "Culture & Sports", finance: "Finance", tech: "Tech", health: "Health", world: "World", reasoning: "Reasoning", skills: "Life skills", social: "People skills" };
   const KIND = { estimation: "Estimate it", flaw: "Spot the flaw", logic: "Logic", pattern: "Pattern", triage: "Triage", interview: "Interview", money: "Money", workplace: "Work smarts", communication: "Communication", decision: "Decisions",
     conversation: "Conversation", jargon: "Jargon", street: "Street smarts", self: "Self-check" };
   const SOCIAL = new Set(["conversation", "communication"]);
@@ -151,7 +151,7 @@
     S.feed = feedR.data; S.stats = statsR.data || { total: 0, week: 0, today: 0, streak: 0 }; S.note = noteR.data;
     S.events = new Map(); S.preview = null;
     if (S.feed) {
-      const { data: evs } = await sb.from("brief_events").select("card_id, kind, correct, choice, answer, points").eq("feed_date", S.feed.feed_date);
+      const { data: evs } = await sb.from("brief_events").select("card_id, kind, correct, choice, answer, points, ms").eq("feed_date", S.feed.feed_date);
       for (const e of evs || []) S.events.set(evKey(e.card_id, e.kind), e);
     }
     if (!S.view) S.view = "home";
@@ -165,7 +165,7 @@
     const lo = LEVELS[i][0], hi = i < LEVELS.length - 1 ? LEVELS[i + 1][0] : lo + 3000;
     return { n: i + 1, name: LEVELS[i][1], pct: Math.min(100, Math.round((100 * (total - lo)) / (hi - lo))), toNext: hi - total, next: LEVELS[i + 1] ? LEVELS[i + 1][1] : null };
   }
-  const EMOJI = { basics: "📚", finance: "💰", tech: "🤖", health: "🧬", world: "🌍", Kerala: "🌴", India: "🇮🇳", estimation: "🔢", flaw: "🔍", logic: "🧠", pattern: "📈", triage: "⏱️",
+  const EMOJI = { basics: "📚", local: "⚡", science: "🔭", climate: "🌱", civics: "🏛️", culture: "🎭", finance: "💰", tech: "🤖", health: "🧬", world: "🌍", Kerala: "🌴", India: "🇮🇳", estimation: "🔢", flaw: "🔍", logic: "🧠", pattern: "📈", triage: "⏱️",
     conversation: "💬", jargon: "📖", street: "🛡️", self: "🪞", interview: "🎤", money: "💵", workplace: "💼", decision: "⚖️", communication: "🗣️" };
   function tagFor(c) {
     const cat = catOf(c);
@@ -219,7 +219,7 @@
             el("div", { class: "xp" }, el("i", { style: "width:" + lv.pct + "%" })),
             el("span", { class: "muted small", text: lv.next ? lv.toNext + " pts to " + lv.next : "Top level!" })))),
       el("button", { class: "cta", onclick: () => openDeck(S.preview ? 0 : ctaIdx) }, el("span", { text: S.preview ? "Open the brief" : ctaText }), el("span", { class: "arr", text: "→" })),
-      el("div", { class: "cta-sub muted small", text: done ? "All done for today. Nice work." : "About " + Math.max(1, total - n) + " min · " + (total - n) + " cards left" })));
+      el("div", { class: "cta-sub muted small", text: done ? "All done for today. Nice work." : "⏱ " + Math.round(targetMs() / 60000) + "-min brief · " + (total - n) + " cards left" + (usedMs() > 30000 ? " · " + fmt(usedMs()) + " used" : "") })));
     if (S.feed.feed_date !== today && !S.preview) nodes.push(el("div", { class: "stale", text: "Today's brief isn't ready yet, so here's the latest one (" + prettyDate(S.feed.feed_date, { weekday: "short", month: "short" }) + ")." }));
     if (S.note && S.note.note) nodes.push(el("div", { class: "coach2" }, el("div", { class: "av", text: "🧭" }), el("div", {}, el("b", { text: "Coach" }), el("p", { text: S.note.note }))));
     nodes.push(answersView());
@@ -250,7 +250,7 @@
     S.view = "deck"; S.painted = null; S.idx = Math.max(0, Math.min(i, deckItems().length - 1));
     paintLearner(); window.scrollTo(0, 0);
   }
-  function closeDeck() { S.view = "home"; paintLearner(); window.scrollTo(0, 0); }
+  function closeDeck() { timerStop(); S.view = "home"; paintLearner(); window.scrollTo(0, 0); }
 
   let slideScroll = 0;
   function paintDeck(keepScroll) {
@@ -261,6 +261,7 @@
     const top = el("div", { class: "deck-top" }, segs, el("div", { class: "deck-row" },
       el("button", { class: "iconbtn ghosty", "aria-label": "Close", onclick: closeDeck }, "✕"),
       el("span", { class: "pos", text: it.t === "card" ? S.idx + 1 + " / " + total : it.t === "quiz" ? "Recall quiz" : "Done" }),
+      it.t !== "finish" && !S.preview ? el("button", { class: "timer", id: "timerPill", "aria-label": "Pause timer", onclick: () => timerPause(true) }, el("span", { class: "tt" }), el("span", { class: "pz", text: "❚❚" })) : null,
       el("span", { class: "pts-pill", id: "ptsPill", text: "⚡ " + (S.stats.today || 0) })));
     let slide;
     if (it.t === "card") slide = cardSlide(it.c);
@@ -270,7 +271,9 @@
     bar.append(el("button", { class: "nav", "aria-label": "Previous", disabled: S.idx === 0, onclick: () => go(-1) }, "‹"));
     if (it.t === "card") {
       const c = it.c, done = has(c.id, "read"), checked = !c.check || has(c.id, "check");
-      bar.append(el("button", { class: "btn signal grow", onclick: () => (S.preview || done ? go(1) : markRead(c)) }, S.preview || done ? "Next →" : checked ? "Done · next →" : "Skip check · next →"));
+      if (S.preview || done) bar.append(el("button", { class: "btn signal grow", onclick: () => go(1) }, "Next →"));
+      else if (checked) bar.append(el("button", { class: "btn signal grow", onclick: () => markRead(c) }, "Done · next →"));
+      else bar.append(el("button", { class: "btn grow needcheck", onclick: nudgeCheck }, "Answer the quick check to continue ↑"));
     } else if (it.t === "quiz") {
       bar.append(el("button", { class: "btn signal grow", onclick: () => go(1) }, "Finish →"));
     } else bar.append(el("button", { class: "btn signal grow", onclick: closeDeck }, "Back to home"));
@@ -281,8 +284,51 @@
     if (S.preview) top.prepend(el("div", { class: "preview-banner" }, el("span", { text: "Preview · nothing is recorded" }), el("button", { class: "btn ghost", onclick: () => { S.preview = null; S.view = "home"; S.me.learner = null; document.body.classList.remove("in-deck"); route(); } }, "Exit")));
     slide.scrollTop = keepScroll ? slideScroll : 0;
     swipe(slide);
+    if (it.t === "finish") timerStop(); else timerStart();
     if (it.t === "finish" && allDone() && !S.celebrated) { S.celebrated = true; confetti(); }
   }
+
+  function nudgeCheck() {
+    const box = document.querySelector(".slide .check");
+    if (box) { box.scrollIntoView({ behavior: "smooth", block: "center" }); box.classList.remove("nudge"); void box.offsetWidth; box.classList.add("nudge"); }
+    toast("Answer the quick check first. It shows you understood.");
+  }
+
+  /* ---------- session timer (a guide, not a hard stop; pauses on breaks and when he leaves the app) ---------- */
+  const T = { since: null, iv: null, paused: false, warned: false, lastAct: Date.now() };
+  const fmt = (ms) => { const t = Math.max(0, Math.round(ms / 1000)); return Math.floor(t / 60) + ":" + String(t % 60).padStart(2, "0"); };
+  function targetMs() { return ((S.feed && S.feed.extras && S.feed.extras.target_minutes) || 10) * 60000; }
+  function usedMs() { let t = 0; for (const e of S.events.values()) if (e.kind === "time") t += e.ms || 0; return t + (T.since ? Date.now() - T.since : 0); }
+  function timerStart() {
+    if (S.preview || T.paused || !S.feed) return;
+    if (!T.since) { T.since = Date.now(); T.lastAct = Date.now(); }
+    if (!T.iv) T.iv = setInterval(timerTick, 1000);
+    timerTick();
+  }
+  async function timerFlush(endAt) {
+    if (!T.since) return;
+    const seg = Math.min((endAt || Date.now()) - T.since, 3600000); T.since = null;
+    if (seg > 3000 && S.user && S.feed) await record({ card_id: "seg-" + Date.now(), kind: "time", ms: Math.round(seg), points: 0 });
+  }
+  function timerStop() { clearInterval(T.iv); T.iv = null; timerFlush(); }
+  function timerTick() {
+    const pill = document.getElementById("timerPill");
+    if (T.since && Date.now() - T.lastAct > 180000) { const idleFrom = T.lastAct; timerFlush(idleFrom); timerPause(false, "Looks like you stepped away, so we paused the timer."); return; }
+    if (!pill) return;
+    const left = targetMs() - usedMs();
+    pill.classList.toggle("over", left < 0);
+    pill.querySelector(".tt").textContent = "⏱ " + (left >= 0 ? fmt(left) : "+" + fmt(-left));
+    if (left < 0 && !T.warned) { T.warned = true; toast("That's your " + Math.round(targetMs() / 60000) + " minutes. Wrap up when you're ready."); }
+  }
+  function timerPause(manual, why) {
+    clearInterval(T.iv); T.iv = null; timerFlush(); T.paused = true;
+    const ov = el("div", { class: "pausebox", role: "dialog", "aria-modal": "true", "aria-label": "Paused" },
+      el("div", { class: "pz-in" }, el("div", { class: "big", text: "☕" }), el("h3", { text: "Paused" }),
+        el("p", { text: (why ? why + " " : "Take a break. ") + "Your timer is stopped at " + fmt(usedMs()) + " of " + Math.round(targetMs() / 60000) + " minutes." }),
+        el("button", { class: "btn signal block", onclick: () => { ov.remove(); T.paused = false; T.lastAct = Date.now(); timerStart(); } }, "Resume")));
+    document.body.append(ov);
+  }
+  ["pointerdown", "keydown", "scroll", "touchstart"].forEach((ev) => document.addEventListener(ev, () => (T.lastAct = Date.now()), { capture: true, passive: true }));
 
   function go(d) {
     const items = deckItems();
@@ -299,7 +345,7 @@
       if (x0 == null) return;
       const dx = e.changedTouches[0].clientX - x0, dy = e.changedTouches[0].clientY - y0; x0 = null;
       if (Math.abs(dx) < 70 || Math.abs(dx) < Math.abs(dy) * 1.5) return;
-      if (dx < 0) { const it = deckItems()[S.idx]; if (it.t === "card" && !has(it.c.id, "read") && !S.preview) markRead(it.c); else go(1); }
+      if (dx < 0) { const it = deckItems()[S.idx]; if (it.t === "card" && !has(it.c.id, "read") && !S.preview) { if (it.c.check && !has(it.c.id, "check")) nudgeCheck(); else markRead(it.c); } else go(1); }
       else go(-1);
     }, { passive: true });
   }
@@ -647,7 +693,9 @@
       el("button", { class: "btn ghost", disabled: i < 0 || i >= days.length - 1, onclick: () => dayView(k, days[i + 1]) }, "‹ Earlier"),
       el("strong", { text: prettyDate(d, { weekday: "short", month: "short" }) }),
       el("button", { class: "btn ghost", disabled: i <= 0, onclick: () => dayView(k, days[i - 1]) }, "Later ›"));
-    const nodes = [el("div", { class: "row", style: "display:flex;justify-content:space-between;align-items:center;margin-top:6px" }, back), el("section", { class: "hero" }, el("h1", { text: k.name + "'s answers" })), nav];
+    const mins = (data.events || []).filter((e) => e.kind === "time").reduce((t, e) => t + (e.ms || 0), 0) / 60000;
+    const nodes = [el("div", { class: "row", style: "display:flex;justify-content:space-between;align-items:center;margin-top:6px" }, back), el("section", { class: "hero" }, el("h1", { text: k.name + "'s answers" })), nav,
+      data.feed ? el("div", { class: "stale", text: "⏱ Time spent: " + (mins ? Math.round(mins) + " min" : "none recorded") + " · target " + ((data.feed.extras && data.feed.extras.target_minutes) || 10) + " min" }) : null];
     const r = data.report;
     if (r) {
       nodes.push(el("article", { class: "card kid" }, el("div", { class: "eyebrow", text: "Coach's evaluation (written " + prettyDate(r.date, { weekday: "short", month: "short" }) + ")" }),
@@ -785,7 +833,8 @@
   // Coming back after a while (e.g. from a notification) refreshes the brief; a quick trip to a source link doesn't.
   let hiddenAt = 0;
   document.addEventListener("visibilitychange", () => {
-    if (document.visibilityState === "hidden") { hiddenAt = Date.now(); return; }
+    if (document.visibilityState === "hidden") { hiddenAt = Date.now(); if (T.since) { clearInterval(T.iv); T.iv = null; timerFlush(); T.autoPaused = true; } return; }
+    if (T.autoPaused && S.view === "deck") { T.autoPaused = false; timerStart(); }
     if (hiddenAt && Date.now() - hiddenAt > 5 * 60 * 1000 && S.user && S.me && S.me.learner && !S.preview && $sheet.hidden) { S.view = "home"; route(); }
   });
   window.__brief = { S, sb, route };

@@ -14,6 +14,12 @@ Ten minutes a day: five short news summaries (finance, tech, health, world; US a
 2. **Notification** — `supabase/functions/brief-push`, run hourly by `pg_cron` (`brief-push-hourly`, minute 5). Sends one notification at the learner's chosen hour once the brief exists, and skips it if they've already finished.
 3. **The app** — sign in with the Test Prep Hub account. The home screen shows today's progress ring, streak, level and XP, the coach's note and today's lineup. Tap Start to go through the brief as full-screen story cards (swipe or tap to move on), with instant points, level-ups and a celebration at the end. The recall quiz unlocks after 6 cards. The brief always ends after 10 cards; there's no endless feed.
 
+## Topics, time and checks
+
+- **Topics:** news rotates across about ten areas (money and the economy, tech, health, science and space, climate, world affairs, US government and civics, culture and sports business, Tampa Bay, Kerala/India), each at least twice a week. Tampa Bay stories appear 3–4 days a week and whenever there's big local news.
+- **Time:** each brief has a target (12 minutes for the first two weeks, then 10). A timer counts down at the top, turns amber and nudges him to wrap up when the time's up, and pauses when he taps it, leaves the app, or goes idle for 3 minutes. Active time is recorded, and the parent view shows it for each day.
+- **Checks are required:** he has to answer a card's quick check before moving on, so every card gives a signal of whether he understood it.
+
 ## Help for a beginner
 
 Every news card has a **Catch me up** backstory, key words he can tap to see what they mean, and an **I don't get it** button that shows a simpler version and lets him ask a question. The next morning's brief answers his questions (the "You asked" box on the home screen), and each tap or question is a signal the evaluation uses. For his first 21 briefs, the first card each day is a **Foundations** card explaining one core concept behind that day's news (inflation, the Fed, tariffs, AI models, vaccines and so on).

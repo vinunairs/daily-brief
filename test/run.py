@@ -50,6 +50,12 @@ with sync_playwright() as pw:
     p.locator(".cta").click()
     p.wait_for_selector(".slide .shead")
     p.wait_for_timeout(400); p.screenshot(path=str(OUT / "deck-card.png"))
+    # Done is blocked until the check is answered
+    if "Answer the quick check" not in p.locator(".deck-bar .grow").inner_text(): fails.append(("check not required", 1))
+    p.locator("#timerPill").click()
+    p.wait_for_selector(".pausebox")
+    p.screenshot(path=str(OUT / "paused.png"))
+    p.locator(".pausebox button", has_text="Resume").click()
     first = FEED["cards"][0]
     for i, c in enumerate(FEED["cards"]):
         p.wait_for_selector(f"#c-{c['id']}")

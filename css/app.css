@@ -373,3 +373,22 @@ body.in-deck{overflow:hidden}
 .answers{margin:6px 0;display:grid;gap:8px;background:var(--surface);border:1px solid var(--line);border-radius:18px;padding:14px 16px}
 .qa b{display:block;font-size:15px}
 .qa p{margin:4px 0 0;font-family:var(--read);font-size:16px}
+
+/* timer, required checks, new categories */
+.timer{display:inline-flex;align-items:center;gap:6px;border:0;border-radius:99px;padding:4px 10px;font-family:var(--mono);font-size:13px;font-weight:700;background:var(--sunk);color:var(--ink);margin-left:auto}
+.timer .pz{font-size:10px;opacity:.7}
+.timer.over{background:var(--skills-soft);color:var(--skills)}
+.deck-row .timer + .pts-pill{margin-left:0}
+.needcheck{background:var(--sunk);color:var(--graphite);border:1.5px dashed var(--line)}
+.check.nudge{animation:nudge .6s ease}
+@keyframes nudge{30%{box-shadow:0 0 0 4px rgba(255,46,131,.45)}100%{box-shadow:0 0 0 0 transparent}}
+.pausebox{position:fixed;inset:0;z-index:45;background:rgba(16,12,30,.72);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);display:grid;place-items:center;padding:24px}
+.pz-in{background:var(--paper);border-radius:24px;padding:24px;max-width:360px;width:100%;text-align:center;display:grid;gap:10px}
+.pz-in .big{font-size:44px}
+.pz-in h3{font-size:26px;font-weight:800;font-stretch:78%}
+.pz-in p{margin:0;color:var(--graphite)}
+.g-local{--g1:#0284C7;--g2:#F97316}
+.g-science{--g1:#1E3A8A;--g2:#7C3AED}
+.g-climate{--g1:#16A34A;--g2:#0891B2}
+.g-civics{--g1:#1D4ED8;--g2:#DC2626}
+.g-culture{--g1:#DB2777;--g2:#F59E0B}
