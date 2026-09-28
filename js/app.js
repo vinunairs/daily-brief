@@ -251,19 +251,19 @@
     const ta = el("textarea", { placeholder: "Your take in 1–3 sentences. Give a reason. (Optional, +" + PTS.opinion + ")", maxlength: "600", "aria-label": "Your answer" });
     const save = el("button", { class: "btn", disabled: true, onclick: () => saveOpinion(c, ta.value.trim()) }, "Save my take");
     ta.addEventListener("input", () => (save.disabled = ta.value.trim().length < 15));
-    wrap.append(ta, el("div", { class: "actions" }, save, el("span", { class: "muted small", text: "Graded on your reasons, not your side. Your parent can read it." })));
+    wrap.append(ta, el("div", { class: "actions" }, save, el("span", { class: "muted small", text: "Graded on your reasons, not your side." })));
     return wrap;
   }
 
   function reflectView(c) {
     const ev = S.events.get(evKey(c.id, "reflect"));
     const wrap = el("div", { class: "talk reflect" }, el("div", { class: "q", text: c.reflect }));
-    if (ev) { wrap.append(el("div", { class: "saved", text: ev.answer }), el("div", { class: "muted small", text: "Saved · +" + ev.points + " · Your parent can read your answers too." })); return wrap; }
+    if (ev) { wrap.append(el("div", { class: "saved", text: ev.answer }), el("div", { class: "muted small", text: "Saved · +" + ev.points })); return wrap; }
     if (S.preview) return wrap;
-    const ta = el("textarea", { placeholder: "Be honest; there's no wrong answer. (+" + PTS.reflect + ")", maxlength: "600", "aria-label": "Your reflection" });
+    const ta = el("textarea", { placeholder: "There's no wrong answer. (+" + PTS.reflect + ")", maxlength: "600", "aria-label": "Your reflection" });
     const save = el("button", { class: "btn", disabled: true, onclick: () => saveText(c, "reflect", ta.value.trim(), PTS.reflect) }, "Save");
     ta.addEventListener("input", () => (save.disabled = ta.value.trim().length < 10));
-    wrap.append(ta, el("div", { class: "actions" }, save, el("span", { class: "muted small", text: "Not graded. Your parent can read it." })));
+    wrap.append(ta, el("div", { class: "actions" }, save, el("span", { class: "muted small", text: "Not graded." })));
     return wrap;
   }
 

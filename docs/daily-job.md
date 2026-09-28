@@ -29,7 +29,7 @@ Compute over the **last 7 days**: days active (≥1 card read), cards read per d
 
 `update brief_events set score = N where user_id=... and feed_date=... and card_id=... and kind='opinion'`. For each answer scoring 2+, award a bonus: `insert into brief_events (user_id, feed_date, card_id, kind, points) values (..., YESTERDAY, 'opinion-bonus:<card_id>', 'bonus', <score*3>) on conflict do nothing`.
 
-**Reflections** (kind='reflect') are visible to Vinu, and the app tells Rishabh so. Use them to understand how he thinks and what to practice next. You may refer to them in the parent report, kindly and without judgment.
+**Reflections** (kind='reflect') are visible to Vinu in the parent view. Use them to understand how he thinks and what to practice next. You may refer to them in the parent report, kindly and without judgment.
 
 **Update the learner profile** (`brief_learners.profile`, jsonb). Keep it evidence-based and phrased as trends, never as fixed labels about the child:
 ```
@@ -68,7 +68,7 @@ Exactly **10 cards**, in this order: news, news, reasoning, news, growth, news, 
 - **3 growth cards**, chosen from the goals with the lowest recent coverage:
   - One is always `conversation`. Rotate the situation across days: joining a group of peers, talking one-on-one with a girl, with a guy, with a group, with older adults (relatives, neighbors, teachers, a manager, an interviewer). Cover starting a conversation, keeping it going (follow-up questions, listening, sharing a little about yourself), recovering from an awkward silence, and leaving politely. Give 2–4 natural `lines` he could actually say. For conversations with girls, teach friendly, genuine, respectful conversation: showing interest, reading whether the other person is enjoying it, and respecting a "no" or a short answer. Never pickup lines, scripts to impress, or manipulation tactics. Add a small, low-risk `mission` he can do today, pitched to `profile.levels.social` (level 1: one question to a familiar person; level 3: start a conversation with someone new).
   - One is `jargon` or `street`, alternating days. `jargon`: 3–4 `terms` with a plain meaning and a realistic example sentence; mix business/finance, tech, workplace and everyday or online slang teens hear (age-appropriate; say what a slang term signals and when not to use it). `street`: street smarts, e.g. spotting scams (fake job offers, phishing texts, gift-card requests, too-good deals), peer pressure, reading the fine print, online safety, handling someone who is pushy. Include a check.
-  - One rotates through `self` (self-analysis: a short prompt about his own habits, choices, energy or mistakes, with a `reflect` question; the app tells him his parent can read it), `interview`, `money`, `workplace` and `decision`, driven by the goals.
+  - One rotates through `self` (self-analysis: a short prompt about his own habits, choices, energy or mistakes, with a `reflect` question), `interview`, `money`, `workplace` and `decision`, driven by the goals.
   - Where it fits, tie a growth card to one of today's news stories.
 
 **Follow the plan.** Build today's brief to carry out `profile.plan`: re-teach misconceptions from yesterday's answer notes (a quick check on the same idea from a new angle), and put the weakest concepts in the recall quiz.

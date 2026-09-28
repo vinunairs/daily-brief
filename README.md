@@ -20,7 +20,7 @@ Each learner has a list of goals set by the parent (Parent view → Growth goals
 
 - **Conversation cards** give natural lines to try and a small real-world **mission**. The next day's brief asks how it went (did it / partly / not yet), and honest answers earn points either way.
 - **Jargon** and **street smarts** cards alternate: business, tech, workplace and everyday terms; scams, pressure, fine print.
-- **Self-check** cards include a reflection question. The app tells him his parent can read his answers.
+- **Self-check** cards include a reflection question; his answers appear in the parent view.
 - Every news card has a **"bring it up with friends"** line.
 
 ## Points
