@@ -69,6 +69,8 @@ with sync_playwright() as pw:
             slide.locator("button", has_text="Save my take").click()
             p.wait_for_selector(f"#c-{c['id']} .saved")
             p.screenshot(path=str(OUT / "deck-answered.png"))
+            slide.locator(".rx", has_text="More like this").click()
+            p.wait_for_selector(f"#c-{c['id']} .rx.on")
             slide.locator(".word").first.click()
             p.wait_for_selector(f"#c-{c['id']} .defbox:not([hidden])")
             slide.locator(".catchup summary").click()
@@ -109,7 +111,7 @@ with sync_playwright() as pw:
     kinds = {}
     for e in ev: kinds[e["kind"]] = kinds.get(e["kind"], 0) + 1
     print("events:", kinds, "points:", sum(e.get("points", 0) for e in ev))
-    if kinds.get("read") != 10 or kinds.get("check") != sum(1 for c in FEED["cards"] if c.get("check")) or kinds.get("recall") != 3 or kinds.get("opinion") != 1 or kinds.get("bonus") != 1 or kinds.get("reflect") != 1 or kinds.get("mission") != 1 or kinds.get("confused") != 1 or kinds.get("ask") != 1 or kinds.get("question") != 1:
+    if kinds.get("read") != 10 or kinds.get("check") != sum(1 for c in FEED["cards"] if c.get("check")) or kinds.get("recall") != 3 or kinds.get("opinion") != 1 or kinds.get("bonus") != 1 or kinds.get("reflect") != 1 or kinds.get("mission") != 1 or kinds.get("confused") != 1 or kinds.get("ask") != 1 or kinds.get("question") != 1 or kinds.get("like") != 1:
         fails.append(("events", kinds))
     if not all(e["correct"] for e in ev if e["kind"] == "recall"): fails.append(("recall should be correct", ev))
     first_check = [e for e in ev if e["kind"] == "check" and e["card_id"] == first["id"]][0]
@@ -120,9 +122,10 @@ with sync_playwright() as pw:
     p, errs = page_for(b, "parent", dark=True)
     p.wait_for_selector(".kid")
     p.screenshot(path=str(OUT / "parent.png"), full_page=True)
-    p.locator(".goalsbox summary").click()
-    p.locator(".addgoal input").fill("Handling disagreements calmly")
-    p.locator(".addgoal button").click()
+    if p.locator(".goalsbox summary", has_text="Interests").count() != 1: fails.append(("interests editor", 0))
+    p.locator(".goalsbox summary").first.click()
+    p.locator(".goalsbox").first.locator(".addgoal input").fill("Handling disagreements calmly")
+    p.locator(".goalsbox").first.locator(".addgoal button").click()
     p.locator(".goalsbox button", has_text="Save goals").click()
     p.wait_for_function("window.__GOALS && window.__GOALS.p_goals.length === 3")
     p.screenshot(path=str(OUT / "parent-goals.png"), full_page=True)

@@ -24,6 +24,10 @@ The news is the vehicle. The core aims are **street smarts, enquiry skills (aski
 
 Before writing a card or grading an answer, the morning job does background reading beyond the article and uses established methods: the Question Formulation Technique and Socratic questioning, PREP for speaking, active listening for group conversation, and FTC/FBI scam guidance for street smarts. The parent report includes a line on each of the four aims every day.
 
+## Likes and interests
+
+Every card has **👍 More like this / 👎 Not for me** (he can change his mind). Liked cards show a 💖 on the home tiles. In the Parent view you can edit his **Interests** list (currently music: rock, orchestral, EDM and game music; drumming; Pokémon; Demon Slayer and anime) and see what he's liked. The morning job uses both as hooks and examples, about 30% of a brief, without dropping core topics.
+
 ## Topics, time and checks
 
 - **Topics:** news rotates across about ten areas (money and the economy, tech, health, science and space, climate, world affairs, US government and civics, culture and sports business, Tampa Bay, Kerala/India), each at least twice a week. Tampa Bay stories appear 3–4 days a week and whenever there's big local news.
@@ -76,7 +80,7 @@ All tables are prefixed `brief_` and don't touch Test Prep Hub's data.
 | `brief_reports` | daily evaluation for the parent | admin only |
 | `brief_push_subscriptions` | notification devices | the learner |
 
-Functions: `brief_me()`, `brief_stats()`, `brief_admin_overview()`, `brief_admin_feed()` and `brief_admin_set_goals()` (admin only), `brief_streak_for()` (server only).
+Functions: `brief_me()`, `brief_stats()`, `brief_admin_overview()`, `brief_admin_feed()`, `brief_admin_day()`, `brief_admin_set_goals()` and `brief_admin_set_interests()` (admin only), `brief_streak_for()` (server only).
 
 **Add a learner** (e.g. a younger child): they need a Test Prep Hub account, then
 ```sql

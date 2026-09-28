@@ -229,7 +229,8 @@
       const read = has(c.id, "read");
       return el("button", { class: "tile g-" + catOf(c) + (read ? " read" : ""), onclick: () => openDeck(i) },
         el("span", { class: "te", text: emojiOf(c) }), el("span", { class: "tk", text: (c.type === "news" || c.type === "basics") ? CAT[catOf(c)] : KIND[c.kind] || CAT[catOf(c)] }),
-        el("span", { class: "tt", text: c.title }), read ? el("span", { class: "tick", text: "✓" }) : null);
+        el("span", { class: "tt", text: c.title }), read ? el("span", { class: "tick", text: "✓" }) : null,
+        (S.events.get(evKey(c.id, "like")) || {}).choice > 0 ? el("span", { class: "heart", text: "💖" }) : null);
     })));
     const qz = S.feed.quiz || [];
     if (qz.length) {
@@ -373,6 +374,7 @@
     if (c.curious) inner.append(curiousView(c));
     if (c.talk) inner.append(talkView(c));
     if (c.source && c.source.url) inner.append(el("div", { class: "source" }, "Source: ", el("a", { href: c.source.url, target: "_blank", rel: "noopener" }, c.source.name || "Read more"), " ↗"));
+    if (!S.preview) inner.append(reactView(c));
     if (has(c.id, "read")) {
       const earned = ["read", "check", "opinion", "reflect"].reduce((t, k) => t + ((S.events.get(evKey(c.id, k)) || {}).points || 0), 0);
       inner.append(el("p", { class: "muted small", text: "✓ Read · +" + earned + " points from this card" }));
@@ -424,6 +426,24 @@
     ta.addEventListener("input", () => (save.disabled = ta.value.trim().length < 5));
     box.append(ta, el("div", { class: "actions" }, save, el("span", { class: "muted small", text: "Answered in tomorrow's brief." })));
     return box;
+  }
+
+  // 👍 / 👎 on each card: tells the morning job what he's into.
+  function reactView(c) {
+    const ev = S.events.get(evKey(c.id, "like")), v = ev ? ev.choice : 0;
+    const set = async (nv) => {
+      if (nv === v) return;
+      const row = { user_id: S.user.id, feed_date: S.feed.feed_date, card_id: c.id, kind: "like", choice: nv, points: ev ? ev.points : 1 };
+      const { error } = await sb.from("brief_events").upsert(row, { onConflict: "user_id,feed_date,card_id,kind" });
+      if (error) return toast("Couldn't save. Check your connection.");
+      if (!ev) { S.stats.total += 1; S.stats.today += 1; S.stats.week += 1; }
+      S.events.set(evKey(c.id, "like"), row);
+      if (nv > 0) gain(ev ? 0 : 1, "Noted: more like this"); else toast("Got it: less like this");
+      paintLearner(true);
+    };
+    return el("div", { class: "react" }, el("span", { class: "muted small", text: "Into this topic?" }),
+      el("button", { class: "rx" + (v > 0 ? " on" : ""), "aria-pressed": String(v > 0), onclick: () => set(1) }, "👍 More like this"),
+      el("button", { class: "rx" + (v < 0 ? " on down" : ""), "aria-pressed": String(v < 0), onclick: () => set(-1) }, "👎 Not for me"));
   }
 
   // 🎤 Say it out loud: speech-to-text practice (falls back to typing where the browser can't transcribe).
@@ -690,7 +710,14 @@
       det.append(el("p", { class: "muted small", text: "Reflections written in the last 14 days: " + (k.reflections_14d || 0) + ". Read them under See his answers." }));
       card.append(det);
     }
-    card.append(goalsEditor(k));
+    const likes = k.likes || [];
+    if (likes.length) {
+      const up = likes.filter((x) => x.v > 0), down = likes.filter((x) => x.v < 0);
+      card.append(el("details", {}, el("summary", { text: "What he liked: 👍 " + up.length + " · 👎 " + down.length }),
+        up.length ? el("div", {}, el("div", { class: "eyebrow", text: "Liked" }), el("div", { class: "pills" }, up.slice(0, 12).map((x) => el("span", { class: "pill good", text: x.title })))) : null,
+        down.length ? el("div", { style: "margin-top:8px" }, el("div", { class: "eyebrow", text: "Not for me" }), el("div", { class: "pills" }, down.slice(0, 12).map((x) => el("span", { class: "pill", text: x.title })))) : null));
+    }
+    card.append(goalsEditor(k), interestsEditor(k));
     if (ops.length) {
       const det = el("details", {}, el("summary", { text: "Recent \"your take\" answers (" + ops.length + ")" }));
       for (const o of ops) det.append(el("div", { class: "op" }, el("div", { class: "muted small", text: o.date + (o.score != null ? " · reasoning " + o.score + "/3" : " · not scored yet") }), el("q", { text: o.answer })));
@@ -705,29 +732,34 @@
     return card;
   }
 
-  function goalsEditor(k) {
-    let goals = (k.goals || []).slice();
+  // Editable list (growth goals, interests) saved through an admin-only function.
+  function listEditor(k, o) {
+    let items = (k[o.field] || []).slice();
     const list = el("ol", { class: "goals" });
     const msg = el("span", { class: "muted small", role: "status" });
     const save = el("button", { class: "btn primary", disabled: true, onclick: async () => {
       save.disabled = true; msg.textContent = "Saving…";
-      const { error } = await sb.rpc("brief_admin_set_goals", { p_user: k.user_id, p_goals: goals });
+      const { error } = await sb.rpc(o.rpc, Object.assign({ p_user: k.user_id }, { [o.arg]: items }));
       msg.textContent = error ? friendly(error) : "Saved. Tomorrow's brief will use these.";
-      if (!error) k.goals = goals.slice();
-    } }, "Save goals");
-    const dirty = () => { save.disabled = JSON.stringify(goals) === JSON.stringify(k.goals || []); msg.textContent = save.disabled ? "" : "Unsaved changes"; };
+      if (!error) k[o.field] = items.slice();
+    } }, "Save " + o.noun + "s");
+    const dirty = () => { save.disabled = JSON.stringify(items) === JSON.stringify(k[o.field] || []); msg.textContent = save.disabled ? "" : "Unsaved changes"; };
     function paint() {
-      list.replaceChildren(...goals.map((g, i) => el("li", {}, el("span", { text: g }),
-        el("button", { class: "linkbtn", "aria-label": "Remove goal: " + g, onclick: () => { goals.splice(i, 1); paint(); dirty(); } }, "Remove"))));
+      list.replaceChildren(...items.map((g, i) => el("li", {}, el("span", { text: g }),
+        el("button", { class: "linkbtn", "aria-label": "Remove " + o.noun + ": " + g, onclick: () => { items.splice(i, 1); paint(); dirty(); } }, "Remove"))));
     }
-    const input = el("input", { type: "text", maxlength: "200", placeholder: "e.g. Handling disagreements calmly", "aria-label": "New goal" });
-    const add = () => { const v = input.value.trim(); if (!v || goals.length >= 20) return; goals.push(v); input.value = ""; paint(); dirty(); };
+    const input = el("input", { type: "text", maxlength: "200", placeholder: o.placeholder, "aria-label": "New " + o.noun });
+    const add = () => { const v = input.value.trim(); if (!v || items.length >= o.max) return; items.push(v); input.value = ""; paint(); dirty(); };
     input.addEventListener("keydown", (e) => { if (e.key === "Enter") { e.preventDefault(); add(); } });
     paint();
-    return el("details", { class: "goalsbox" }, el("summary", { text: "Growth goals (" + goals.length + ")" }),
-      el("p", { class: "muted small", text: "What you want " + k.name + " to grow in. Every morning's brief is built around these. Add or remove any time." }),
+    return el("details", { class: "goalsbox" }, el("summary", { text: o.title + " (" + items.length + ")" }),
+      el("p", { class: "muted small", text: o.desc }),
       list, el("div", { class: "addgoal" }, input, el("button", { class: "btn", onclick: add }, "Add")), el("div", { class: "actions" }, save, msg));
   }
+  const goalsEditor = (k) => listEditor(k, { field: "goals", rpc: "brief_admin_set_goals", arg: "p_goals", noun: "goal", max: 20, title: "Growth goals",
+    placeholder: "e.g. Handling disagreements calmly", desc: "What you want " + k.name + " to grow in. Every morning's brief is built around these. Add or remove any time." });
+  const interestsEditor = (k) => listEditor(k, { field: "interests", rpc: "brief_admin_set_interests", arg: "p_items", noun: "interest", max: 30, title: "Interests",
+    placeholder: "e.g. Formula 1, cooking, Minecraft", desc: "What " + k.name + " is into. Used as hooks and examples (about 30% of each brief), never to replace the core topics." });
 
   /* Parent: one day of answers with the next morning's evaluation. */
   async function dayView(k, date) {
