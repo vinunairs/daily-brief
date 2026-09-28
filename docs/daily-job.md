@@ -1,6 +1,6 @@
 # Daily Brief — morning job
 
-Runs every day at 5:40 a.m. Eastern as a scheduled task. It evaluates each learner's previous day, updates their learner profile, writes a coach note and a parent report, researches the news, and writes that day's tuned 10-card brief around the parent's growth goals. The notification function (`brief-push`) sends the "your brief is ready" notification at each learner's chosen hour once the brief exists.
+Runs every day at 5:40 a.m. Eastern as a scheduled task. It evaluates each learner's previous day, updates their learner profile, writes a coach note and a parent report (a note on each answer, what the answers show about his knowledge, and a plan forward), researches the news, and writes that day's tuned 10-card brief around the parent's growth goals. The notification function (`brief-push`) sends the "your brief is ready" notification at each learner's chosen hour once the brief exists.
 
 The prompt below is exactly what the scheduled task runs.
 
@@ -29,7 +29,7 @@ Compute over the **last 7 days**: days active (≥1 card read), cards read per d
 
 `update brief_events set score = N where user_id=... and feed_date=... and card_id=... and kind='opinion'`. For each answer scoring 2+, award a bonus: `insert into brief_events (user_id, feed_date, card_id, kind, points) values (..., YESTERDAY, 'opinion-bonus:<card_id>', 'bonus', <score*3>) on conflict do nothing`.
 
-**Private reflections** (kind='reflect') were written on the promise that they are not shown in the parent view. Use them only to choose and pitch content (for example, which conversation situations to practice next). Never quote them, paraphrase them, or reveal what they say in the parent report, the profile, or the coach note.
+**Reflections** (kind='reflect') are visible to Vinu, and the app tells Rishabh so. Use them to understand how he thinks and what to practice next. You may refer to them in the parent report, kindly and without judgment.
 
 **Update the learner profile** (`brief_learners.profile`, jsonb). Keep it evidence-based and phrased as trends, never as fixed labels about the child:
 ```
@@ -39,12 +39,16 @@ Compute over the **last 7 days**: days active (≥1 card read), cards read per d
   "direction": "one sentence on the trend over the last 1–2 weeks",
   "threads": ["running story slugs worth continuing"],
   "goal_coverage": {"<goal text, shortened>": <cards in last 7 days>},
+  "plan": "the current 1–2 week plan in 2–3 sentences (same as the report's plan)",
   "updated": "TODAY" }
 ```
 Levels: start at 2. Raise one step after 5+ attempts at ≥80% in that category; lower one step after 5+ attempts at ≤40%. For `social`, use missions tried instead: raise after 3+ missions tried in a week, lower (easier missions) after a week with none tried. With under a week of data, say so in `direction` and change little.
 
-**Parent report** → `insert into brief_reports (user_id, report_date, summary, metrics) values (..., TODAY, ...) on conflict (user_id, report_date) do update ...`
-- `summary`: 4–7 plain sentences for Vinu. Cover what he did yesterday, the 7-day trend, progress on Vinu's goals (name the goals), what he's strong at, what's building up, missions tried, which content hooks him, and one concrete suggestion (e.g. "Ask him at dinner about the tariff story — he got the check right and wrote a thoughtful take"). If he was inactive, say so without drama and suggest a nudge. Don't diagnose or label. Never reveal reflection content.
+**Parent report** → `insert into brief_reports (user_id, report_date, summary, metrics, answer_notes, knowledge, plan) values (..., TODAY, ...) on conflict (user_id, report_date) do update ...` (the report dated TODAY evaluates YESTERDAY's brief; Vinu reads it next to yesterday's answers)
+- `summary`: 4–7 plain sentences for Vinu. Cover what he did yesterday, the 7-day trend, progress on Vinu's goals (name the goals), what he's strong at, what's building up, missions tried, which content hooks him, and one concrete suggestion (e.g. "Ask him at dinner about the tariff story — he got the check right and wrote a thoughtful take"). If he was inactive, say so without drama and suggest a nudge. Don't diagnose or label.
+- `answer_notes`: `[{"card_id":"…","note":"…"}]`, one entry for every answer he gave YESTERDAY: each quick check, take, reflection, recall item (use the quiz id) and the mission check-in (card_id "mission"). One or two sentences each on what the answer shows: the concept he understood or missed, the likely misconception behind a wrong pick, how he reasoned (guessing, recalling, reasoning it out; very fast reads with wrong checks suggest skimming), and for takes and reflections, what stands out in how he thinks. Be specific and fair; praise real strengths.
+- `knowledge`: 3–6 sentences on what his answers over the last 7 days show about his knowledge base: solid areas, shaky areas, specific misconceptions, vocabulary he doesn't have yet, recall versus reasoning, and progress on Vinu's goals. Only draw conclusions the evidence supports; with little data, say what you'd need to see.
+- `plan`: the plan forward for the next 1–2 weeks, concrete: which concepts, topics and skills the briefs will emphasize and why, what the recall quiz will re-test, any difficulty changes, and 1–2 things Vinu can do at home (a dinner question tied to a story, an everyday errand that practices a skill). Store the gist in `profile.plan` too, and follow it when writing briefs.
 - `metrics`: `{"days_active_7d":n, "cards_read_7d":n, "median_read_seconds":n, "accuracy_by_category":{"finance":0-1|null,...}, "recall_accuracy_7d":0-1|null, "opinions_7d":n, "opinion_avg_score":0-3|null, "missions_tried_7d":n, "missions_offered_7d":n, "points_7d":n}`
 
 **Coach note** → `insert into brief_coach_notes (user_id, note_date, note) values (..., TODAY, ...) on conflict do update`. 1–2 sentences for the learner, specific and encouraging, no guilt. Mention something he actually did well (a correct tricky check, a strong take, a mission tried, a streak) or, if he was inactive, a light, curious invitation back.
@@ -64,8 +68,10 @@ Exactly **10 cards**, in this order: news, news, reasoning, news, growth, news, 
 - **3 growth cards**, chosen from the goals with the lowest recent coverage:
   - One is always `conversation`. Rotate the situation across days: joining a group of peers, talking one-on-one with a girl, with a guy, with a group, with older adults (relatives, neighbors, teachers, a manager, an interviewer). Cover starting a conversation, keeping it going (follow-up questions, listening, sharing a little about yourself), recovering from an awkward silence, and leaving politely. Give 2–4 natural `lines` he could actually say. For conversations with girls, teach friendly, genuine, respectful conversation: showing interest, reading whether the other person is enjoying it, and respecting a "no" or a short answer. Never pickup lines, scripts to impress, or manipulation tactics. Add a small, low-risk `mission` he can do today, pitched to `profile.levels.social` (level 1: one question to a familiar person; level 3: start a conversation with someone new).
   - One is `jargon` or `street`, alternating days. `jargon`: 3–4 `terms` with a plain meaning and a realistic example sentence; mix business/finance, tech, workplace and everyday or online slang teens hear (age-appropriate; say what a slang term signals and when not to use it). `street`: street smarts, e.g. spotting scams (fake job offers, phishing texts, gift-card requests, too-good deals), peer pressure, reading the fine print, online safety, handling someone who is pushy. Include a check.
-  - One rotates through `self` (self-analysis: a short prompt about his own habits, choices, energy or mistakes, with a private `reflect` question), `interview`, `money`, `workplace` and `decision`, driven by the goals.
+  - One rotates through `self` (self-analysis: a short prompt about his own habits, choices, energy or mistakes, with a `reflect` question; the app tells him his parent can read it), `interview`, `money`, `workplace` and `decision`, driven by the goals.
   - Where it fits, tie a growth card to one of today's news stories.
+
+**Follow the plan.** Build today's brief to carry out `profile.plan`: re-teach misconceptions from yesterday's answer notes (a quick check on the same idea from a new angle), and put the weakest concepts in the recall quiz.
 
 **Tuning (the 70/30 rule).** About 70% of the brief is balanced core content no matter what. Up to 3 cards may use his interests as the hook or example. Never drop a category because he avoids it; instead make that card shorter and more concrete. Match each card's difficulty to `profile.levels` (level 1: shorter sentences, more context; level 3: more nuance, second-order effects, harder distractors). Put at least one stretch question in a "building up" area.
 
@@ -80,7 +86,7 @@ news:      {"id":"n1","type":"news","cat":"finance|tech|health|world","region":"
 reasoning: {"id":"r1","type":"reasoning","kind":"estimation|flaw|logic|pattern|triage","cat":"reasoning","title":"…","body":"…","check":{…},"tip":"optional"}
 growth:    {"id":"g1","type":"skill","kind":"conversation|jargon|street|self|interview|money|workplace|decision","cat":"skills","goal":"which of Vinu's goals this serves","title":"…","body":"…",
             "lines":["optional: things to say"],"terms":[{"term":"…","means":"…","example":"…"}] (optional),
-            "check":{…} (optional for conversation and self; required otherwise),"mission":"optional: small real-world challenge for today","reflect":"optional: private self-reflection question","tip":"optional"}
+            "check":{…} (optional for conversation and self; required otherwise),"mission":"optional: small real-world challenge for today","reflect":"optional: self-reflection question","tip":"optional"}
 ```
 Rules: ids n1–n5, r1–r2, g1–g3. Checks test understanding, not trivia. Four plausible options; one clearly correct. Spread the correct index across 0–3. Explanations never refer to options by letter or position (the app shuffles them). All writing is original; no quotations longer than a few words. At most one card per day has a `mission`, and at most one has a `reflect`.
 
@@ -100,4 +106,4 @@ Read it back (`select jsonb_array_length(cards) …`) to confirm.
 
 ## Finish
 
-End with a 3–5 line summary: per learner, the feed saved (yes/no), yesterday's cards read and check accuracy, which goals today's brief covered, and anything that went wrong. Only report what the tool results confirm.
+End with a 3–5 line summary: per learner, the feed saved (yes/no), the report saved with how many answer notes, yesterday's cards read and check accuracy, which goals today's brief covered, and anything that went wrong. Only report what the tool results confirm.

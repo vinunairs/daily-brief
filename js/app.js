@@ -251,19 +251,19 @@
     const ta = el("textarea", { placeholder: "Your take in 1–3 sentences. Give a reason. (Optional, +" + PTS.opinion + ")", maxlength: "600", "aria-label": "Your answer" });
     const save = el("button", { class: "btn", disabled: true, onclick: () => saveOpinion(c, ta.value.trim()) }, "Save my take");
     ta.addEventListener("input", () => (save.disabled = ta.value.trim().length < 15));
-    wrap.append(ta, el("div", { class: "actions" }, save, el("span", { class: "muted small", text: "Not graded on opinion, only on reasons." })));
+    wrap.append(ta, el("div", { class: "actions" }, save, el("span", { class: "muted small", text: "Graded on your reasons, not your side. Your parent can read it." })));
     return wrap;
   }
 
   function reflectView(c) {
     const ev = S.events.get(evKey(c.id, "reflect"));
     const wrap = el("div", { class: "talk reflect" }, el("div", { class: "q", text: c.reflect }));
-    if (ev) { wrap.append(el("div", { class: "saved", text: ev.answer }), el("div", { class: "muted small", text: "Saved · +" + ev.points + " · 🔒 Private: not shown in the parent view." })); return wrap; }
-    if (S.preview) { wrap.append(el("div", { class: "muted small", text: "🔒 Reflections are private to the learner." })); return wrap; }
-    const ta = el("textarea", { placeholder: "Be honest. Nobody grades this. (+" + PTS.reflect + ")", maxlength: "600", "aria-label": "Your reflection" });
+    if (ev) { wrap.append(el("div", { class: "saved", text: ev.answer }), el("div", { class: "muted small", text: "Saved · +" + ev.points + " · Your parent can read your answers too." })); return wrap; }
+    if (S.preview) return wrap;
+    const ta = el("textarea", { placeholder: "Be honest; there's no wrong answer. (+" + PTS.reflect + ")", maxlength: "600", "aria-label": "Your reflection" });
     const save = el("button", { class: "btn", disabled: true, onclick: () => saveText(c, "reflect", ta.value.trim(), PTS.reflect) }, "Save");
     ta.addEventListener("input", () => (save.disabled = ta.value.trim().length < 10));
-    wrap.append(ta, el("div", { class: "actions" }, save, el("span", { class: "muted small", text: "🔒 Private: not shown in the parent view." })));
+    wrap.append(ta, el("div", { class: "actions" }, save, el("span", { class: "muted small", text: "Not graded. Your parent can read it." })));
     return wrap;
   }
 
@@ -382,6 +382,8 @@
         el("div", { class: "sparkl" }, el("span", { text: days[0] ? prettyDate(days[0].d, { weekday: undefined, month: "short" }) : "" }), el("span", { text: "today" }))));
     if (rep) {
       card.append(el("div", {}, el("div", { class: "eyebrow", text: "Latest evaluation · " + prettyDate(rep.date, { weekday: "short", month: "short" }) }), el("div", { class: "report", text: rep.summary })));
+      if (rep.knowledge) card.append(el("div", {}, el("div", { class: "eyebrow", text: "What his answers show about his knowledge" }), el("div", { class: "report", text: rep.knowledge })));
+      if (rep.plan) card.append(el("div", { class: "plan" }, el("div", { class: "eyebrow", text: "Plan forward" }), el("div", { class: "report", text: rep.plan })));
       const cats = rep.metrics && rep.metrics.accuracy_by_category;
       if (cats && Object.keys(cats).length) {
         const bars = el("div", { class: "catbars" });
@@ -408,7 +410,7 @@
       const tried = missions.filter((m) => m.result > 0).length;
       const det = el("details", {}, el("summary", { text: "Real-world missions: " + tried + " of " + missions.length + " tried" }));
       for (const m of missions) det.append(el("div", { class: "op" }, el("div", { class: "muted small", text: m.date + " · " + lbl[m.result] }), m.mission));
-      det.append(el("p", { class: "muted small", text: "Private reflections written in the last 14 days: " + (k.reflections_14d || 0) + ". Their content isn't shown here, so he can be honest; the morning job uses them to tune his brief." }));
+      det.append(el("p", { class: "muted small", text: "Reflections written in the last 14 days: " + (k.reflections_14d || 0) + ". Read them under See his answers." }));
       card.append(det);
     }
     card.append(goalsEditor(k));
@@ -417,7 +419,7 @@
       for (const o of ops) det.append(el("div", { class: "op" }, el("div", { class: "muted small", text: o.date + (o.score != null ? " · reasoning " + o.score + "/3" : " · not scored yet") }), el("q", { text: o.answer })));
       card.append(det);
     }
-    card.append(el("div", { class: "actions" }, el("button", { class: "btn", onclick: () => previewFeed(k) }, "Preview " + k.name + "'s brief"), el("button", { class: "btn ghost", onclick: () => route() }, "Refresh")));
+    card.append(el("div", { class: "actions" }, el("button", { class: "btn primary", onclick: () => dayView(k, null) }, "See his answers"), el("button", { class: "btn", onclick: () => previewFeed(k) }, "Preview " + k.name + "'s brief"), el("button", { class: "btn ghost", onclick: () => route() }, "Refresh")));
     if (rep && (k.reports || []).length > 1) {
       const det = el("details", {}, el("summary", { text: "Earlier evaluations" }));
       for (const r of k.reports.slice(1)) det.append(el("div", { class: "op" }, el("div", { class: "muted small", text: prettyDate(r.date, { weekday: "short", month: "short" }) }), el("div", { class: "report", text: r.summary })));
@@ -448,6 +450,67 @@
     return el("details", { class: "goalsbox" }, el("summary", { text: "Growth goals (" + goals.length + ")" }),
       el("p", { class: "muted small", text: "What you want " + k.name + " to grow in. Every morning's brief is built around these. Add or remove any time." }),
       list, el("div", { class: "addgoal" }, input, el("button", { class: "btn", onclick: add }, "Add")), el("div", { class: "actions" }, save, msg));
+  }
+
+  /* Parent: one day of answers with the next morning's evaluation. */
+  async function dayView(k, date) {
+    const { data, error } = await sb.rpc("brief_admin_day", { p_user: k.user_id, p_date: date || localDate() });
+    if (error) return toast(friendly(error));
+    const days = data.days || [];
+    if (!date && !data.feed && days.length) return dayView(k, days[0]);
+    const d = data.date, i = days.indexOf(d);
+    const ev = {}; for (const e of data.events || []) ev[e.card + ":" + e.kind] = e;
+    const notes = {}; for (const n of (data.report && data.report.notes) || []) notes[n.card_id] = n.note;
+    const back = el("button", { class: "btn ghost", onclick: () => route() }, "← Back");
+    const nav = el("div", { class: "daynav" },
+      el("button", { class: "btn ghost", disabled: i < 0 || i >= days.length - 1, onclick: () => dayView(k, days[i + 1]) }, "‹ Earlier"),
+      el("strong", { text: prettyDate(d, { weekday: "short", month: "short" }) }),
+      el("button", { class: "btn ghost", disabled: i <= 0, onclick: () => dayView(k, days[i - 1]) }, "Later ›"));
+    const nodes = [el("div", { class: "row", style: "display:flex;justify-content:space-between;align-items:center;margin-top:6px" }, back), el("section", { class: "hero" }, el("h1", { text: k.name + "'s answers" })), nav];
+    const r = data.report;
+    if (r) {
+      nodes.push(el("article", { class: "card kid" }, el("div", { class: "eyebrow", text: "Coach's evaluation (written " + prettyDate(r.date, { weekday: "short", month: "short" }) + ")" }),
+        el("div", { class: "report", text: r.summary }),
+        r.knowledge ? el("div", {}, el("div", { class: "eyebrow", text: "What his answers show about his knowledge" }), el("div", { class: "report", text: r.knowledge })) : null,
+        r.plan ? el("div", { class: "plan" }, el("div", { class: "eyebrow", text: "Plan forward" }), el("div", { class: "report", text: r.plan })) : null));
+    } else nodes.push(el("div", { class: "stale", text: data.feed ? "The evaluation of this day appears the next morning after 5:40 a.m." : "No brief on this day." }));
+    if (data.feed) {
+      const m = data.feed.extras && data.feed.extras.mission_checkin, me = ev["mission:mission"];
+      if (m) nodes.push(el("div", { class: "card ans" }, el("div", { class: "eyebrow", text: "Mission check-in" }), el("div", { text: m.text }), el("div", { class: "his " + (me ? "" : "none"), text: me ? ["Not yet", "Partly", "Did it"][me.choice] : "No answer" })));
+      for (const c of data.feed.cards) {
+        const box = el("div", { class: "card ans" }, el("div", { class: "meta" }, tagFor(c)), el("h3", { text: c.title }));
+        const rd = ev[c.id + ":read"];
+        box.append(el("div", { class: "muted small", text: rd ? "Read in " + Math.round((rd.ms || 0) / 1000) + " s" : "Not read" }));
+        if (c.check) {
+          const ce = ev[c.id + ":check"];
+          box.append(el("div", { class: "aq", text: c.check.q }));
+          if (!ce) box.append(el("div", { class: "his none", text: "Skipped the check" }));
+          else {
+            box.append(el("div", { class: "his " + (ce.correct ? "right" : "wrong"), text: (ce.correct ? "✓ " : "✗ ") + c.check.o[ce.choice] }));
+            if (!ce.correct) box.append(el("div", { class: "muted small", text: "Right answer: " + c.check.o[c.check.a] }));
+          }
+        }
+        const op = ev[c.id + ":opinion"];
+        if (c.talk) box.append(el("div", { class: "aq", text: "💬 " + c.talk }), op ? el("div", { class: "his text" }, el("q", { text: op.answer }), el("span", { class: "muted small", text: op.score != null ? " · reasoning " + op.score + "/3" : " · not scored yet" })) : el("div", { class: "his none", text: "No take written" }));
+        const rf = ev[c.id + ":reflect"];
+        if (c.reflect) box.append(el("div", { class: "aq", text: "🪞 " + c.reflect }), rf ? el("div", { class: "his text" }, el("q", { text: rf.answer })) : el("div", { class: "his none", text: "No reflection written" }));
+        if (c.mission) box.append(el("div", { class: "muted small", text: "🎯 Mission: " + c.mission }));
+        if (notes[c.id]) box.append(el("div", { class: "note" }, el("b", { text: "Coach: " }), notes[c.id]));
+        nodes.push(box);
+      }
+      const qz = data.feed.quiz || [];
+      if (qz.length) {
+        const box = el("div", { class: "card ans" }, el("div", { class: "eyebrow", text: "Recall quiz" }));
+        for (const q of qz) {
+          const qe = ev[q.id + ":recall"];
+          box.append(el("div", { class: "aq", text: q.q }), qe ? el("div", { class: "his " + (qe.correct ? "right" : "wrong"), text: (qe.correct ? "✓ " : "✗ ") + q.o[qe.choice] + (qe.correct ? "" : " (right: " + q.o[q.a] + ")") }) : el("div", { class: "his none", text: "Not answered" }));
+          if (notes[q.id]) box.append(el("div", { class: "note" }, el("b", { text: "Coach: " }), notes[q.id]));
+        }
+        nodes.push(box);
+      }
+    }
+    $app.replaceChildren(...nodes);
+    window.scrollTo(0, 0);
   }
 
   async function previewFeed(k) {

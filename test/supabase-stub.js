@@ -40,6 +40,10 @@
             reports: [{ date: "2026-09-29", summary: "Rishabh read all 10 cards yesterday.", metrics: { accuracy_by_category: { finance: 1, tech: 0.5, health: 1, reasoning: 0.5, skills: 1 } } }],
             opinions: [{ date: "2026-09-28", card: "n2", answer: "Holding back soybeans keeps leverage for the next round.", score: 2 }] }] };
           if (fn === "brief_admin_feed") return { data: feed };
+          if (fn === "brief_admin_day") return { data: { date: feed.feed_date, days: [feed.feed_date], feed,
+            events: [{ card: feed.cards[0].id, kind: "read", ms: 42000 }, { card: feed.cards[0].id, kind: "check", correct: false, choice: (feed.cards[0].check.a + 1) % 4 },
+                     { card: feed.cards[0].id, kind: "opinion", answer: "Reopen the route first, gas prices hurt families.", score: 2 }, { card: "s1", kind: "reflect", answer: "Easier one-on-one." }],
+            report: { date: "2026-09-29", summary: "Read 10 of 10.", knowledge: "Solid on trade basics; mixes up refining and shipping.", plan: "More supply-chain cards this week.", notes: [{ card_id: feed.cards[0].id, note: "Confused refining with shipping routes." }] } } };
           if (fn === "brief_admin_set_goals") { window.__GOALS = args; return { data: [] }; }
           return { data: null };
         },

@@ -98,7 +98,7 @@ a{color:inherit}
 .say b{font-family:var(--display)}
 .mission{background:var(--signal-soft)}
 .mission b{color:var(--signal)}
-.reflect .q::before{content:"🔒 "}
+.reflect .q::before{content:"🪞 "}
 .checkin{background:var(--surface);border:1.5px dashed var(--signal);border-radius:16px;padding:14px 16px;display:grid;gap:8px;margin-top:14px}
 .checkin .q{font-family:var(--read);font-size:16px}
 .goalsbox{border-top:1px solid var(--line);padding-top:10px;display:grid;gap:8px}
@@ -207,3 +207,16 @@ details summary{cursor:pointer;font-weight:700}
 .toast.plus{background:var(--signal);color:var(--signal-ink)}
 
 @media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+
+/* parent: answers by day */
+.daynav{display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:10px}
+.card.ans{padding:14px 16px;display:grid;gap:6px;margin-top:10px}
+.card.ans h3{font-size:17px;font-weight:750;font-stretch:85%}
+.aq{font-size:14px;font-weight:700;margin-top:4px}
+.his{font-size:14.5px;border-radius:8px;padding:6px 10px;background:var(--sunk)}
+.his.right{background:var(--good-soft);color:var(--good);font-weight:600}
+.his.wrong{background:var(--bad-soft);color:var(--bad);font-weight:600}
+.his.none{color:var(--graphite);font-style:italic}
+.his.text q{font-family:var(--read);font-size:15.5px}
+.note{font-size:14px;border-left:3px solid var(--signal);padding-left:10px}
+.plan{background:var(--signal-soft);border-radius:12px;padding:10px 12px}

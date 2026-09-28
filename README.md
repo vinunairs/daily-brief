@@ -9,7 +9,7 @@ Ten minutes a day: five short news summaries (finance, tech, health, world; US a
 1. **5:40 a.m. ET — morning job** (a scheduled Claude task; prompt in `docs/daily-job.md`). For each active learner it:
    - evaluates yesterday: reading, quick-check accuracy by category, recall accuracy, time on cards, and scores "your take" answers on a 0–3 reasoning rubric (with bonus points for 2+);
    - updates the learner profile (strengths, building-up areas, interests, difficulty levels, trend);
-   - writes a parent report and a short coach note;
+   - writes a parent report (a note on every answer, what his answers show about his knowledge, and a 1–2 week plan forward that the following briefs carry out) and a short coach note;
    - researches the news and writes today's 10-card brief, tuned to the profile (70% balanced core, up to 30% interest-driven) and the learner's age band.
 2. **Notification** — `supabase/functions/brief-push`, run hourly by `pg_cron` (`brief-push-hourly`, minute 5). Sends one notification at the learner's chosen hour once the brief exists, and skips it if they've already finished.
 3. **The app** — sign in with the Test Prep Hub account. Read a card, answer the quick check, optionally write a take, tap Done. The recall quiz unlocks after 6 cards.
@@ -20,7 +20,7 @@ Each learner has a list of goals set by the parent (Parent view → Growth goals
 
 - **Conversation cards** give natural lines to try and a small real-world **mission**. The next day's brief asks how it went (did it / partly / not yet), and honest answers earn points either way.
 - **Jargon** and **street smarts** cards alternate: business, tech, workplace and everyday terms; scams, pressure, fine print.
-- **Self-check** cards include a private reflection. The parent view shows only how many were written, never what they say; the morning job uses them only to pick what to practice next.
+- **Self-check** cards include a reflection question. The app tells him his parent can read his answers.
 - Every news card has a **"bring it up with friends"** line.
 
 ## Points
@@ -61,7 +61,7 @@ The morning job picks them up the next day.
 
 ## Parent view
 
-Sign in with the admin account to edit each learner's growth goals and see their streak, points, 14-day activity, latest evaluation, accuracy by category, profile trends and recent "your take" answers, missions tried, and to preview their brief.
+Sign in with the admin account to open **See his answers** (each day's brief with every answer he gave, a coach note on each, the knowledge assessment and the plan forward), edit each learner's growth goals and see their streak, points, 14-day activity, latest evaluation, accuracy by category, profile trends and recent "your take" answers, missions tried, and to preview their brief.
 
 ## iPhone notifications
 
