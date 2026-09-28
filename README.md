@@ -12,7 +12,7 @@ Ten minutes a day: five short news summaries (finance, tech, health, world; US a
    - writes a parent report (a note on every answer, what his answers show about his knowledge, and a 1–2 week plan forward that the following briefs carry out) and a short coach note;
    - researches the news and writes today's 10-card brief, tuned to the profile (70% balanced core, up to 30% interest-driven) and the learner's age band.
 2. **Notification** — `supabase/functions/brief-push`, run hourly by `pg_cron` (`brief-push-hourly`, minute 5). Sends one notification at the learner's chosen hour once the brief exists, and skips it if they've already finished.
-3. **The app** — sign in with the Test Prep Hub account. Read a card, answer the quick check, optionally write a take, tap Done. The recall quiz unlocks after 6 cards.
+3. **The app** — sign in with the Test Prep Hub account. The home screen shows today's progress ring, streak, level and XP, the coach's note and today's lineup. Tap Start to go through the brief as full-screen story cards (swipe or tap to move on), with instant points, level-ups and a celebration at the end. The recall quiz unlocks after 6 cards. The brief always ends after 10 cards; there's no endless feed.
 
 ## Growth goals
 
@@ -22,6 +22,10 @@ Each learner has a list of goals set by the parent (Parent view → Growth goals
 - **Jargon** and **street smarts** cards alternate: business, tech, workplace and everyday terms; scams, pressure, fine print.
 - **Self-check** cards include a reflection question; his answers appear in the parent view.
 - Every news card has a **"bring it up with friends"** line.
+
+## Levels
+
+Rookie (0) → Reader (150) → Informed (400) → Sharp (800) → Insider (1,400) → Analyst (2,200) → Strategist (3,300) → Visionary (4,800) → Legend (7,000). A full day is worth roughly 100–130 points.
 
 ## Points
 

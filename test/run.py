@@ -43,42 +43,46 @@ with sync_playwright() as pw:
     p.screenshot(path=str(OUT / "signin.png"))
     if errs: fails.append(("signin", errs))
 
-    # learner flow
+    # learner flow: home -> deck through all cards -> quiz -> finish -> home mission check-in
     p, errs = page_for(b, "learner")
-    p.wait_for_selector(".card.open")
-    p.screenshot(path=str(OUT / "learner-top.png"))
+    p.wait_for_selector(".cta")
+    p.screenshot(path=str(OUT / "home.png"), full_page=True)
+    p.locator(".cta").click()
+    p.wait_for_selector(".slide .shead")
+    p.wait_for_timeout(400); p.screenshot(path=str(OUT / "deck-card.png"))
     first = FEED["cards"][0]
-    right = first["check"]["o"][first["check"]["a"]]
-    p.locator(".card.open .opt", has_text=right[:30]).click()
-    p.wait_for_selector(".card.open .opt.right")
-    p.locator(".card.open textarea").fill("I think reopening the route matters more now because gas prices hurt families.")
-    p.locator(".card.open button", has_text="Save my take").click()
-    p.wait_for_selector(".card.open .saved")
-    p.screenshot(path=str(OUT / "learner-card-answered.png"), full_page=False)
-    # read all cards: answer wrong where possible, then Done
     for i, c in enumerate(FEED["cards"]):
-        card = p.locator(f"#c-{c['id']}")
-        if "open" not in (card.get_attribute("class") or ""):
-            card.locator(".head").click()
-        if c.get("check") and card.locator(".opt:not([disabled])").count():
-            card.locator(".opt").first.click()
+        p.wait_for_selector(f"#c-{c['id']}")
+        slide = p.locator(f"#c-{c['id']}")
+        if c.get("check"):
+            if i == 0: slide.locator(".opt", has_text=c["check"]["o"][c["check"]["a"]][:30]).click()
+            else: slide.locator(".opt").first.click()
             p.wait_for_selector(f"#c-{c['id']} .opt.right")
-        card.locator("button.btn.signal, button.btn.ghost.block").first.click()
-        p.wait_for_selector(f"#c-{c['id']}.done")
-    p.wait_for_selector("#quiz .card")
-    # growth card reflection (s1 is already read; reopen it)
-    p.locator("#c-s1 .head").click()
-    p.locator("#c-s1 .reflect textarea").fill("Mostly when I'm with one friend I already know.")
-    p.locator("#c-s1 .reflect button", has_text="Save").click()
-    p.wait_for_selector("#c-s1 .reflect .saved")
-    p.screenshot(path=str(OUT / "learner-growth.png"))
-    # mission check-in
+        if i == 0:
+            slide.locator(".talk:not(.reflect) textarea").fill("I think reopening the route matters more now because gas prices hurt families.")
+            slide.locator("button", has_text="Save my take").click()
+            p.wait_for_selector(f"#c-{c['id']} .saved")
+            p.screenshot(path=str(OUT / "deck-answered.png"))
+        if c.get("reflect"):
+            slide.locator(".reflect textarea").fill("Mostly when I'm with one friend I already know.")
+            slide.locator(".reflect button", has_text="Save").click()
+            p.wait_for_selector(f"#c-{c['id']} .reflect .saved")
+            p.screenshot(path=str(OUT / "deck-growth.png"))
+        p.locator(".deck-bar .grow").click()
+    p.wait_for_selector("#quiz")
+    for q in FEED["quiz"]:
+        p.locator("#quiz .check", has_text=q["q"][:40]).locator(".opt", has_text=q["o"][q["a"]]).click()
+        p.wait_for_timeout(150)
+    p.screenshot(path=str(OUT / "deck-quiz.png"))
+    p.locator(".deck-bar .grow", has_text="Finish").click()
+    p.wait_for_selector(".g-finish")
+    p.wait_for_timeout(300)
+    p.screenshot(path=str(OUT / "deck-finish.png"))
+    p.locator(".deck-bar .grow", has_text="Back to home").click()
+    p.wait_for_selector(".checkin")
     p.locator(".checkin button", has_text="Did it").click()
     p.wait_for_selector(".checkin .small")
-    for q in FEED["quiz"]:
-        p.locator("#quiz .card", has_text=q["q"][:40]).locator(".opt", has_text=q["o"][q["a"]]).click()
-    p.wait_for_selector(".finish")
-    p.screenshot(path=str(OUT / "learner-done.png"), full_page=True)
+    p.screenshot(path=str(OUT / "home-done.png"), full_page=True)
     ev = p.evaluate("window.__EVENTS")
     kinds = {}
     for e in ev: kinds[e["kind"]] = kinds.get(e["kind"], 0) + 1
@@ -108,8 +112,10 @@ with sync_playwright() as pw:
     p.wait_for_selector(".kid")
     p.locator("button", has_text="Preview").click()
     p.wait_for_selector(".preview-banner")
+    p.locator(".cta").click()
+    p.wait_for_selector(".slide .shead")
     p.screenshot(path=str(OUT / "parent-preview.png"))
-    if p.locator(".btn.signal").count(): fails.append(("preview shows Done button", 1))
+    if "Done" in p.locator(".deck-bar .grow").inner_text(): fails.append(("preview shows Done button", 1))
     if errs: fails.append(("parent", errs))
     b.close()
 srv.shutdown()

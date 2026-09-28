@@ -70,7 +70,7 @@
   }
 
   /* ---------- state ---------- */
-  const S = { user: null, me: null, feed: null, events: new Map(), stats: null, note: null, open: null, opened: {}, preview: null };
+  const S = { user: null, me: null, feed: null, events: new Map(), stats: null, note: null, view: "home", idx: 0, dir: 1, opened: {}, preview: null, celebrated: false };
   const evKey = (card, kind) => card + ":" + kind;
   const has = (card, kind) => S.events.has(evKey(card, kind));
   const readCount = () => (S.feed ? S.feed.cards.filter((c) => has(c.id, "read")).length : 0);
@@ -154,101 +154,195 @@
       const { data: evs } = await sb.from("brief_events").select("card_id, kind, correct, choice, answer, points").eq("feed_date", S.feed.feed_date);
       for (const e of evs || []) S.events.set(evKey(e.card_id, e.kind), e);
     }
-    if (!S.open && S.feed) { const next = S.feed.cards.find((c) => !has(c.id, "read")); S.open = next ? next.id : null; }
+    if (!S.view) S.view = "home";
     paintLearner();
   }
 
-  function paintLearner() {
-    const today = localDate();
-    const name = (S.me.learner && S.me.learner.name) || "";
-    const nodes = [];
-    nodes.push(el("section", { class: "hero" },
-      el("div", { class: "date", text: prettyDate(today) }),
-      el("h1", { text: greeting() + (name ? ", " + name : "") }),
-      el("div", { class: "stats" },
-        el("div", { class: "stat" + (S.stats.streak > 0 ? " hot" : "") }, el("b", { text: (S.stats.streak || 0) + "🔥" }), el("span", { text: "day streak" })),
-        el("div", { class: "stat" }, el("b", { text: S.stats.today || 0 }), el("span", { text: "points today" })),
-        el("div", { class: "stat" }, el("b", { text: S.stats.week || 0 }), el("span", { text: "this week" })))));
-    if (S.note && S.note.note) nodes.push(el("div", { class: "coach" }, el("span", { class: "eyebrow", text: "Coach's note" }), S.note.note));
-    if (!S.feed) {
-      nodes.push(el("div", { class: "card pad" }, el("p", { text: "Your first brief is being prepared. Check back after 7 a.m." })));
-      return $app.replaceChildren(...nodes);
-    }
-    if (S.feed.feed_date !== today && !S.preview) nodes.push(el("div", { class: "stale", text: "Today's brief isn't ready yet, so here's the latest one (" + prettyDate(S.feed.feed_date, { weekday: "short", month: "short" }) + ")." }));
-    const n = readCount(), total = S.feed.cards.length;
-    nodes.push(el("div", { class: "progress" },
-      el("div", { class: "lbl" }, el("span", { text: n + " of " + total + " read" }), el("span", { class: "muted", text: n >= total ? "All done" : "~" + Math.max(1, Math.round((total - n) * 1)) + " min left" })),
-      el("div", { class: "bar" }, el("i", { style: "width:" + Math.round((100 * n) / total) + "%" }))));
-    nodes.push(missionView());
-    nodes.push(el("div", { class: "feed" }, S.feed.cards.map(cardView)));
-    nodes.push(quizView());
-    if (n >= total && S.feed.quiz.every((q) => has(q.id, "recall"))) nodes.push(el("div", { class: "finish" }, el("h3", { text: "Brief complete 🎉" }), el("p", { text: "You're caught up. Bring one of today's stories into a conversation. That's how it sticks." })));
-    $app.replaceChildren(...nodes);
+  /* ---------- learner: home + story-style deck ---------- */
+  const LEVELS = [[0, "Rookie"], [150, "Reader"], [400, "Informed"], [800, "Sharp"], [1400, "Insider"], [2200, "Analyst"], [3300, "Strategist"], [4800, "Visionary"], [7000, "Legend"]];
+  function level(total) {
+    let i = 0; while (i < LEVELS.length - 1 && total >= LEVELS[i + 1][0]) i++;
+    const lo = LEVELS[i][0], hi = i < LEVELS.length - 1 ? LEVELS[i + 1][0] : lo + 3000;
+    return { n: i + 1, name: LEVELS[i][1], pct: Math.min(100, Math.round((100 * (total - lo)) / (hi - lo))), toNext: hi - total, next: LEVELS[i + 1] ? LEVELS[i + 1][1] : null };
   }
-
+  const EMOJI = { finance: "💰", tech: "🤖", health: "🧬", world: "🌍", Kerala: "🌴", India: "🇮🇳", estimation: "🔢", flaw: "🔍", logic: "🧠", pattern: "📈", triage: "⏱️",
+    conversation: "💬", jargon: "📖", street: "🛡️", self: "🪞", interview: "🎤", money: "💵", workplace: "💼", decision: "⚖️", communication: "🗣️" };
   function tagFor(c) {
     const cat = c.type === "news" ? (CAT[c.cat] ? c.cat : "world") : c.type === "reasoning" ? "reasoning" : SOCIAL.has(c.kind) ? "social" : "skills";
     const label = c.type === "news" ? CAT[cat] : KIND[c.kind] || CAT[cat];
     return el("span", { class: "tag " + cat, text: label });
   }
+  function catOf(c) { return c.type === "news" ? (CAT[c.cat] ? c.cat : "world") : c.type === "reasoning" ? "reasoning" : SOCIAL.has(c.kind) ? "social" : "skills"; }
+  function emojiOf(c) { return c.type === "news" ? EMOJI[c.region] || EMOJI[c.cat] || "📰" : EMOJI[c.kind] || "✨"; }
+  const deckItems = () => [...S.feed.cards.map((c) => ({ t: "card", c })), ...(S.feed.quiz && S.feed.quiz.length ? [{ t: "quiz" }] : []), { t: "finish" }];
+  const allDone = () => readCount() >= S.feed.cards.length && (S.feed.quiz || []).every((q) => has(q.id, "recall"));
 
-  function cardView(c) {
-    const done = has(c.id, "read");
-    const open = S.open === c.id;
-    const readEv = S.events.get(evKey(c.id, "read"));
-    const earned = ["read", "check", "opinion", "reflect"].reduce((t, k) => t + ((S.events.get(evKey(c.id, k)) || {}).points || 0), 0);
-    const head = el("button", { class: "head", type: "button", "aria-expanded": String(open), onclick: () => toggle(c.id) },
-      el("div", { class: "meta" }, tagFor(c), c.region ? el("span", { class: "region", text: c.region }) : null),
-      done && !open ? el("span", { class: "pts", text: "✓ +" + earned }) : chevron(),
-      el("h2", { text: c.title }));
-    const card = el("article", { class: "card" + (open ? " open" : "") + (done && !open ? " done" : ""), id: "c-" + c.id }, head);
-    if (!open) return card;
+  function paintLearner(keepScroll) {
+    document.body.classList.toggle("in-deck", S.view === "deck");
+    if (S.view === "deck" && S.feed) return paintDeck(keepScroll);
+    paintHome();
+  }
+
+  function ring(n, total) {
+    const r = 34, c = 2 * Math.PI * r, p = total ? n / total : 0;
+    const s = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+    s.setAttribute("viewBox", "0 0 80 80"); s.setAttribute("class", "ring"); s.setAttribute("aria-hidden", "true");
+    s.innerHTML = `<defs><linearGradient id="rg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#FF7A45"/><stop offset="1" stop-color="#FF2E83"/></linearGradient></defs>
+      <circle cx="40" cy="40" r="${r}" fill="none" stroke="var(--ring-track)" stroke-width="8"/>
+      <circle cx="40" cy="40" r="${r}" fill="none" stroke="url(#rg)" stroke-width="8" stroke-linecap="round" stroke-dasharray="${c}" stroke-dashoffset="${c * (1 - p)}" transform="rotate(-90 40 40)" class="ring-fill"/>`;
+    return s;
+  }
+
+  function paintHome() {
+    const today = localDate();
+    const name = (S.me.learner && S.me.learner.name) || "";
+    const nodes = [];
+    const lv = level(S.stats.total || 0);
+    if (!S.feed) {
+      nodes.push(el("section", { class: "hero2" }, el("div", { class: "date", text: prettyDate(today) }), el("h1", { text: greeting() + (name ? ", " + name : "") })),
+        el("div", { class: "card pad", text: "Your first brief is being prepared. Check back after 7 a.m." }));
+      return $app.replaceChildren(...nodes);
+    }
+    const n = readCount(), total = S.feed.cards.length;
+    const started = n > 0, done = allDone();
+    const nextIdx = Math.max(0, S.feed.cards.findIndex((c) => !has(c.id, "read")));
+    const ctaText = done ? "Review today's brief" : started ? (n >= total ? "Finish the recall quiz" : "Continue · card " + (nextIdx + 1) + " of " + total) : "Start today's brief";
+    const ctaIdx = done ? 0 : n >= total ? total : nextIdx;
+    nodes.push(el("section", { class: "hero2" },
+      el("div", { class: "date", text: prettyDate(today) }),
+      el("h1", { text: greeting() + (name ? ", " + name : "") }),
+      el("div", { class: "hud" },
+        el("div", { class: "ringbox" }, ring(n, total), el("div", { class: "ringtxt" }, el("b", { text: n }), el("span", { text: "of " + total }))),
+        el("div", { class: "hudstats" },
+          el("div", { class: "flame" + (S.stats.streak > 0 ? " lit" : "") }, el("span", { class: "fl", text: "🔥" }), el("b", { text: S.stats.streak || 0 }), el("span", { text: "day streak" })),
+          el("div", { class: "lvl" }, el("div", { class: "lvlrow" }, el("span", { class: "badge", text: "Lv " + lv.n }), el("b", { text: lv.name }), el("span", { class: "pts-pill", id: "ptsPill", text: (S.stats.today || 0) + " pts today" })),
+            el("div", { class: "xp" }, el("i", { style: "width:" + lv.pct + "%" })),
+            el("span", { class: "muted small", text: lv.next ? lv.toNext + " pts to " + lv.next : "Top level!" })))),
+      el("button", { class: "cta", onclick: () => openDeck(S.preview ? 0 : ctaIdx) }, el("span", { text: S.preview ? "Open the brief" : ctaText }), el("span", { class: "arr", text: "→" })),
+      el("div", { class: "cta-sub muted small", text: done ? "All done for today. Nice work." : "About " + Math.max(1, total - n) + " min · " + (total - n) + " cards left" })));
+    if (S.feed.feed_date !== today && !S.preview) nodes.push(el("div", { class: "stale", text: "Today's brief isn't ready yet, so here's the latest one (" + prettyDate(S.feed.feed_date, { weekday: "short", month: "short" }) + ")." }));
+    if (S.note && S.note.note) nodes.push(el("div", { class: "coach2" }, el("div", { class: "av", text: "🧭" }), el("div", {}, el("b", { text: "Coach" }), el("p", { text: S.note.note }))));
+    nodes.push(missionView());
+    nodes.push(el("div", { class: "section-h" }, el("h3", { text: "Today's lineup" }), el("span", { class: "muted small", text: n + "/" + total + " read" })));
+    nodes.push(el("div", { class: "tiles" }, S.feed.cards.map((c, i) => {
+      const read = has(c.id, "read");
+      return el("button", { class: "tile g-" + catOf(c) + (read ? " read" : ""), onclick: () => openDeck(i) },
+        el("span", { class: "te", text: emojiOf(c) }), el("span", { class: "tk", text: c.type === "news" ? CAT[catOf(c)] : KIND[c.kind] || CAT[catOf(c)] }),
+        el("span", { class: "tt", text: c.title }), read ? el("span", { class: "tick", text: "✓" }) : null);
+    })));
+    const qz = S.feed.quiz || [];
+    if (qz.length) {
+      const unlocked = n >= Math.min(QUIZ_UNLOCK, total) || S.preview;
+      const qd = qz.filter((q) => has(q.id, "recall")).length;
+      nodes.push(el("button", { class: "tile wide g-quiz" + (unlocked ? "" : " locked"), onclick: () => (unlocked ? openDeck(total) : toast("Read " + QUIZ_UNLOCK + " cards to unlock")) },
+        el("span", { class: "te", text: unlocked ? "🏆" : "🔒" }), el("span", { class: "tk", text: "Recall quiz · +" + PTS.recallRight + " each" }),
+        el("span", { class: "tt", text: unlocked ? qd + " of " + qz.length + " answered" : "Unlocks after " + QUIZ_UNLOCK + " cards" })));
+    }
+    const days = (S.stats.days || []).slice(-7);
+    if (days.length) nodes.push(el("div", { class: "week" }, el("div", { class: "eyebrow", text: "Your week" }), el("div", { class: "wk" }, days.map((d) => el("div", { class: "wd" + (d.read >= 6 ? " on" : d.pts ? " some" : "") + (d.d === today ? " today" : "") },
+      el("i", {}), el("span", { text: new Date(d.d + "T12:00:00Z").toLocaleDateString("en-US", { weekday: "narrow", timeZone: "UTC" }) }))))));
+    if (S.preview) nodes.unshift(el("div", { class: "preview-banner" }, el("span", { text: "Preview of " + S.preview.name + "'s brief for " + prettyDate(S.feed.feed_date, { weekday: "short", month: "short" }) + ". Nothing is recorded." }), el("button", { class: "btn ghost", onclick: () => { S.preview = null; S.me.learner = null; route(); } }, "Back")));
+    $app.replaceChildren(...nodes);
+  }
+
+  function openDeck(i) {
+    S.view = "deck"; S.painted = null; S.idx = Math.max(0, Math.min(i, deckItems().length - 1));
+    paintLearner(); window.scrollTo(0, 0);
+  }
+  function closeDeck() { S.view = "home"; paintLearner(); window.scrollTo(0, 0); }
+
+  let slideScroll = 0;
+  function paintDeck(keepScroll) {
+    const items = deckItems(), it = items[S.idx], total = S.feed.cards.length;
+    const prevSlide = document.querySelector(".slide");
+    if (keepScroll && prevSlide) slideScroll = prevSlide.scrollTop;
+    const segs = el("div", { class: "segs" }, items.filter((x) => x.t !== "finish").map((x, i) => el("i", { class: (i === S.idx ? "cur " : "") + ((x.t === "card" && has(x.c.id, "read")) || (x.t === "quiz" && (S.feed.quiz || []).every((q) => has(q.id, "recall"))) ? "done" : "") })));
+    const top = el("div", { class: "deck-top" }, segs, el("div", { class: "deck-row" },
+      el("button", { class: "iconbtn ghosty", "aria-label": "Close", onclick: closeDeck }, "✕"),
+      el("span", { class: "pos", text: it.t === "card" ? S.idx + 1 + " / " + total : it.t === "quiz" ? "Recall quiz" : "Done" }),
+      el("span", { class: "pts-pill", id: "ptsPill", text: "⚡ " + (S.stats.today || 0) })));
+    let slide;
+    if (it.t === "card") slide = cardSlide(it.c);
+    else if (it.t === "quiz") slide = quizSlide();
+    else slide = finishSlide();
+    const bar = el("div", { class: "deck-bar" });
+    bar.append(el("button", { class: "nav", "aria-label": "Previous", disabled: S.idx === 0, onclick: () => go(-1) }, "‹"));
+    if (it.t === "card") {
+      const c = it.c, done = has(c.id, "read"), checked = !c.check || has(c.id, "check");
+      bar.append(el("button", { class: "btn signal grow", onclick: () => (S.preview || done ? go(1) : markRead(c)) }, S.preview || done ? "Next →" : checked ? "Done · next →" : "Skip check · next →"));
+    } else if (it.t === "quiz") {
+      bar.append(el("button", { class: "btn signal grow", onclick: () => go(1) }, "Finish →"));
+    } else bar.append(el("button", { class: "btn signal grow", onclick: closeDeck }, "Back to home"));
+    if (S.painted === S.idx) slide.classList.remove("from-left", "from-right");
+    S.painted = S.idx;
+    const deck = el("div", { class: "deck" }, top, slide, bar);
+    $app.replaceChildren(deck);
+    if (S.preview) top.prepend(el("div", { class: "preview-banner" }, el("span", { text: "Preview · nothing is recorded" }), el("button", { class: "btn ghost", onclick: () => { S.preview = null; S.view = "home"; S.me.learner = null; document.body.classList.remove("in-deck"); route(); } }, "Exit")));
+    slide.scrollTop = keepScroll ? slideScroll : 0;
+    swipe(slide);
+    if (it.t === "finish" && allDone() && !S.celebrated) { S.celebrated = true; confetti(); }
+  }
+
+  function go(d) {
+    const items = deckItems();
+    const ni = S.idx + d;
+    if (ni < 0 || ni >= items.length) return;
+    if (items[ni].t === "quiz" && readCount() < Math.min(QUIZ_UNLOCK, S.feed.cards.length) && !S.preview) { toast("Read " + QUIZ_UNLOCK + " cards to unlock the quiz"); return; }
+    S.idx = ni; S.dir = d; paintLearner();
+  }
+
+  function swipe(node) {
+    let x0 = null, y0 = null;
+    node.addEventListener("touchstart", (e) => { if (e.target.closest("textarea,input,button,a")) return; x0 = e.touches[0].clientX; y0 = e.touches[0].clientY; }, { passive: true });
+    node.addEventListener("touchend", (e) => {
+      if (x0 == null) return;
+      const dx = e.changedTouches[0].clientX - x0, dy = e.changedTouches[0].clientY - y0; x0 = null;
+      if (Math.abs(dx) < 70 || Math.abs(dx) < Math.abs(dy) * 1.5) return;
+      if (dx < 0) { const it = deckItems()[S.idx]; if (it.t === "card" && !has(it.c.id, "read") && !S.preview) markRead(it.c); else go(1); }
+      else go(-1);
+    }, { passive: true });
+  }
+
+  function cardSlide(c) {
     if (!S.opened[c.id]) S.opened[c.id] = Date.now();
+    const cat = catOf(c);
+    const head = el("header", { class: "shead g-" + cat },
+      el("div", { class: "meta" }, el("span", { class: "chip", text: c.type === "news" ? CAT[cat] : KIND[c.kind] || CAT[cat] }), c.region ? el("span", { class: "chip ghost", text: c.region }) : null),
+      el("div", { class: "big", text: emojiOf(c) }),
+      el("h2", { text: c.title }));
     const inner = el("div", { class: "inner" });
     inner.append(el("div", { class: "body", text: c.body }));
     if (c.why) inner.append(el("div", { class: "why" }, el("b", { text: "Why it matters" }), c.why));
     if (Array.isArray(c.terms) && c.terms.length) inner.append(el("dl", { class: "terms" }, c.terms.map((t) => [el("dt", { text: t.term }), el("dd", {}, t.means, t.example ? el("span", { class: "ex", text: "e.g. " + t.example }) : null)])));
     if (Array.isArray(c.lines) && c.lines.length) inner.append(el("div", { class: "lines" }, el("b", { text: "Try saying" }), el("ul", {}, c.lines.map((l) => el("li", { text: l })))));
-    if (c.say) inner.append(el("div", { class: "say" }, el("b", { text: "Bring it up with friends" }), c.say));
+    if (c.say) inner.append(el("div", { class: "say" }, el("b", { text: "💬 Bring it up with friends" }), c.say));
     if (c.check) inner.append(checkView(c));
     if (c.tip) inner.append(el("div", { class: "tip" }, el("b", { text: "Tip: " }), c.tip));
     if (c.mission) inner.append(el("div", { class: "mission" }, el("b", { text: "🎯 Today's mission" }), c.mission, el("span", { class: "muted small", text: "Tomorrow's brief will ask how it went. Honest answers earn points too." })));
     if (c.reflect) inner.append(reflectView(c));
     if (c.talk) inner.append(talkView(c));
     if (c.source && c.source.url) inner.append(el("div", { class: "source" }, "Source: ", el("a", { href: c.source.url, target: "_blank", rel: "noopener" }, c.source.name || "Read more"), " ↗"));
-    if (S.preview) {
-      // parent preview: read-only
-    } else if (!done) {
-      const checked = !c.check || has(c.id, "check");
-      inner.append(el("div", { class: "actions" },
-        el("button", { class: "btn " + (checked ? "signal" : "ghost") + " block", onclick: () => markRead(c) }, checked ? "Done — next card" : "Skip the check and move on")));
-    } else if (readEv) {
+    if (has(c.id, "read")) {
+      const earned = ["read", "check", "opinion", "reflect"].reduce((t, k) => t + ((S.events.get(evKey(c.id, k)) || {}).points || 0), 0);
       inner.append(el("p", { class: "muted small", text: "✓ Read · +" + earned + " points from this card" }));
     }
-    card.append(inner);
-    return card;
-  }
-
-  function toggle(id) {
-    S.open = S.open === id ? null : id;
-    paintLearner();
-    if (S.open) requestAnimationFrame(() => { const n = document.getElementById("c-" + id); if (n) n.scrollIntoView({ behavior: "smooth", block: "start" }); });
+    return el("article", { class: "slide" + (S.dir < 0 ? " from-left" : " from-right"), id: "c-" + c.id }, head, inner);
   }
 
   function checkView(c) {
     const ev = S.events.get(evKey(c.id, "check"));
-    const box = el("div", { class: "check" }, el("div", { class: "q", text: c.check.q }));
+    const box = el("div", { class: "check" }, el("div", { class: "q", text: "⚡ " + c.check.q }));
     const letter = choices(box, S.feed.feed_date + c.id, c.check.o, c.check.a, ev, (i) => answerCheck(c, i));
-    if (ev || S.preview) box.append(el("div", { class: "explain" }, el("b", { text: S.preview ? "Answer: " + letter + "." : ev.correct ? "Right! +" + ev.points : "Not quite. +" + ev.points + " for trying." }), c.check.e));
+    if (ev || S.preview) box.append(el("div", { class: "explain" }, el("b", { text: S.preview ? "Answer: " + letter + "." : ev.correct ? "Nailed it! +" + ev.points : "Not quite. +" + ev.points + " for trying." }), c.check.e));
     return box;
   }
 
   function talkView(c) {
     const ev = S.events.get(evKey(c.id, "opinion"));
     const wrap = el("div", { class: "talk" }, el("div", { class: "q", text: c.talk }));
-    if (ev) { wrap.append(el("div", { class: "saved", text: ev.answer }), el("div", { class: "muted small", text: "Saved · +" + ev.points + ". Your coach reads these; strong reasons earn bonus points tomorrow." })); return wrap; }
+    if (ev) { wrap.append(el("div", { class: "saved", text: ev.answer }), el("div", { class: "muted small", text: "Saved · +" + ev.points + ". Strong reasons earn bonus points tomorrow." })); return wrap; }
     if (S.preview) return wrap;
-    const ta = el("textarea", { placeholder: "Your take in 1–3 sentences. Give a reason. (Optional, +" + PTS.opinion + ")", maxlength: "600", "aria-label": "Your answer" });
+    const ta = el("textarea", { placeholder: "Your take in 1–3 sentences. Give a reason. (+" + PTS.opinion + ")", maxlength: "600", "aria-label": "Your answer" });
     const save = el("button", { class: "btn", disabled: true, onclick: () => saveOpinion(c, ta.value.trim()) }, "Save my take");
     ta.addEventListener("input", () => (save.disabled = ta.value.trim().length < 15));
     wrap.append(ta, el("div", { class: "actions" }, save, el("span", { class: "muted small", text: "Graded on your reasons, not your side." })));
@@ -271,18 +365,18 @@
     const m = S.feed.extras && S.feed.extras.mission_checkin;
     if (!m || !m.text) return null;
     const ev = S.events.get(evKey("mission", "mission"));
-    const box = el("section", { class: "checkin" }, el("div", { class: "eyebrow", text: "Mission check-in" + (m.ref ? " · from " + prettyDate(m.ref, { weekday: "short", month: "short" }) : "") }), el("div", { class: "q", text: m.text }));
+    const box = el("section", { class: "checkin" }, el("div", { class: "eyebrow", text: "🎯 Mission check-in" + (m.ref ? " · from " + prettyDate(m.ref, { weekday: "short", month: "short" }) : "") }), el("div", { class: "q", text: m.text }));
     if (ev) { box.append(el("div", { class: "small", text: ["Not yet: no problem, it'll come around again.", "Partly: that still counts. Nice.", "You did it! That takes guts."][ev.choice] + " +" + ev.points })); return box; }
     if (S.preview) return box;
     const opts = [["Did it ✅", 2], ["Partly", 1], ["Not yet", 0]];
     box.append(el("div", { class: "actions" }, opts.map(([label, v]) => el("button", { class: "btn" + (v === 2 ? " signal" : " ghost"), onclick: async () => {
-      if (await record({ card_id: "mission", kind: "mission", choice: v, answer: m.text.slice(0, 600), points: PTS.mission[v] })) { toast("+" + PTS.mission[v], v > 0); paintLearner(); }
+      if (await record({ card_id: "mission", kind: "mission", choice: v, answer: m.text.slice(0, 600), points: PTS.mission[v] })) { gain(PTS.mission[v], v === 2 ? "Brave move!" : ""); paintLearner(true); }
     } }, label))));
     return box;
   }
 
   async function saveText(c, kind, text, pts) {
-    if (await record({ card_id: c.id, kind, answer: text.slice(0, 600), points: pts })) { toast("Saved +" + pts, true); paintLearner(); }
+    if (await record({ card_id: c.id, kind, answer: text.slice(0, 600), points: pts })) { gain(pts, "Saved"); paintLearner(true); }
   }
 
   async function record(row) {
@@ -291,68 +385,99 @@
     if (error) { toast("Couldn't save. Check your connection."); return false; }
     S.events.set(evKey(row.card_id, row.kind), full);
     const pts = row.points || 0;
+    const before = level(S.stats.total || 0).n;
     S.stats.total += pts; S.stats.today += S.feed.feed_date === localDate() ? pts : 0; S.stats.week += pts;
+    const after = level(S.stats.total);
+    if (after.n > before) setTimeout(() => { toast("Level up! Lv " + after.n + " · " + after.name + " 🎉", true); confetti(); }, 700);
     return true;
+  }
+
+  // Points feedback: floating "+N" plus a pill bump.
+  function gain(pts, label) {
+    const f = el("div", { class: "floatpts", text: "+" + pts + (label ? " · " + label : "") });
+    document.body.append(f); setTimeout(() => f.remove(), 1200);
+    requestAnimationFrame(() => { const p = document.getElementById("ptsPill"); if (p) { p.classList.remove("bump"); void p.offsetWidth; p.classList.add("bump"); } });
+    if (navigator.vibrate) try { navigator.vibrate(12); } catch (e) { }
   }
 
   async function answerCheck(c, i) {
     if (has(c.id, "check") || S.preview) return;
     const correct = i === c.check.a;
     const pts = correct ? PTS.right : PTS.wrong;
-    if (await record({ card_id: c.id, kind: "check", correct, choice: i, points: pts })) {
-      toast(correct ? "Correct! +" + pts : "+" + pts + " for trying", correct);
-      paintLearner();
-    }
+    if (await record({ card_id: c.id, kind: "check", correct, choice: i, points: pts })) { gain(pts, correct ? "Correct!" : "Good try"); paintLearner(true); }
   }
 
   async function saveOpinion(c, text) {
     if (text.length < 15) return;
-    if (await record({ card_id: c.id, kind: "opinion", answer: text.slice(0, 600), points: PTS.opinion })) { toast("Saved +" + PTS.opinion, true); paintLearner(); }
+    if (await record({ card_id: c.id, kind: "opinion", answer: text.slice(0, 600), points: PTS.opinion })) { gain(PTS.opinion, "Take saved"); paintLearner(true); }
   }
 
   async function markRead(c) {
-    if (has(c.id, "read")) return;
+    if (has(c.id, "read")) return go(1);
     const ms = Math.min(3600000, Date.now() - (S.opened[c.id] || Date.now()));
     const pts = ms >= 12000 ? PTS.readLong : PTS.readShort;
     if (!(await record({ card_id: c.id, kind: "read", ms, points: pts }))) return;
     const n = readCount(), total = S.feed.cards.length;
     if (n === total && !has("_complete", "bonus")) {
-      if (await record({ card_id: "_complete", kind: "bonus", points: PTS.complete })) toast("All 10 read! +" + PTS.complete + " bonus", true);
-    } else toast("+" + pts + (n === QUIZ_UNLOCK ? " · Recall quiz unlocked" : ""), true);
+      if (await record({ card_id: "_complete", kind: "bonus", points: PTS.complete })) gain(pts + PTS.complete, "All 10 read!");
+    } else gain(pts, n === QUIZ_UNLOCK ? "Quiz unlocked 🔓" : "");
     if (n === QUIZ_UNLOCK || n === total) { const { data } = await sb.rpc("brief_stats"); if (data) S.stats = data; }
-    const next = S.feed.cards.find((x) => !has(x.id, "read"));
-    S.open = next ? next.id : null;
+    S.idx = Math.min(S.idx + 1, deckItems().length - 1); S.dir = 1;
     paintLearner();
-    const target = next ? document.getElementById("c-" + next.id) : document.getElementById("quiz");
-    if (target) requestAnimationFrame(() => target.scrollIntoView({ behavior: "smooth", block: "start" }));
   }
 
-  function quizView() {
+  function quizSlide() {
     const qz = S.feed.quiz || [];
-    if (!qz.length) return null;
-    const unlocked = readCount() >= Math.min(QUIZ_UNLOCK, S.feed.cards.length) || S.preview;
     const done = qz.filter((q) => has(q.id, "recall")).length;
-    const sec = el("section", { id: "quiz" }, el("div", { class: "section-h" }, el("h3", { text: "Recall quiz" }), el("span", { class: "muted small", text: done + " of " + qz.length + " · +" + PTS.recallRight + " each" })));
-    if (!unlocked) { sec.append(el("div", { class: "locked", text: "🔒 Read " + QUIZ_UNLOCK + " cards to unlock. These questions come from earlier briefs. Remembering old stories is what builds real knowledge." })); return sec; }
-    const list = el("div", { class: "quiz" });
+    const head = el("header", { class: "shead g-quiz" }, el("div", { class: "meta" }, el("span", { class: "chip", text: "Recall quiz" }), el("span", { class: "chip ghost", text: done + " of " + qz.length })),
+      el("div", { class: "big", text: "🏆" }), el("h2", { text: "Do you remember?" }), el("p", { class: "sub", text: "Questions from earlier briefs. Remembering is what turns news into knowledge. +" + PTS.recallRight + " each." }));
+    const inner = el("div", { class: "inner", id: "quiz" });
     for (const q of qz) {
       const ev = S.events.get(evKey(q.id, "recall"));
-      const card = el("div", { class: "card" }, q.ref ? el("div", { class: "ref", text: "From " + prettyDate(q.ref, { weekday: undefined, month: "short" }) }) : null, el("div", { class: "q", style: "font-weight:700", text: q.q }));
-      const letter = choices(card, S.feed.feed_date + q.id, q.o, q.a, ev, (i) => answerRecall(q, i));
-      if (ev || S.preview) card.append(el("div", { class: "explain" }, el("b", { text: S.preview ? "Answer: " + letter + "." : ev.correct ? "Remembered! +" + ev.points : "+" + ev.points + " for trying." }), q.e));
-      list.append(card);
+      const box = el("div", { class: "check" }, q.ref ? el("div", { class: "ref", text: "From " + prettyDate(q.ref, { weekday: undefined, month: "short" }) }) : null, el("div", { class: "q", text: q.q }));
+      const letter = choices(box, S.feed.feed_date + q.id, q.o, q.a, ev, (i) => answerRecall(q, i));
+      if (ev || S.preview) box.append(el("div", { class: "explain" }, el("b", { text: S.preview ? "Answer: " + letter + "." : ev.correct ? "Remembered! +" + ev.points : "+" + ev.points + " for trying." }), q.e));
+      inner.append(box);
     }
-    sec.append(list);
-    return sec;
+    return el("article", { class: "slide" + (S.dir < 0 ? " from-left" : " from-right") }, head, inner);
   }
 
   async function answerRecall(q, i) {
     if (has(q.id, "recall") || S.preview) return;
     const correct = i === q.a, pts = correct ? PTS.recallRight : PTS.recallWrong;
-    if (await record({ card_id: q.id, kind: "recall", correct, choice: i, points: pts })) {
-      toast(correct ? "Remembered! +" + pts : "+" + pts, correct);
-      const y = window.scrollY; paintLearner(); window.scrollTo(0, y);
-    }
+    if (await record({ card_id: q.id, kind: "recall", correct, choice: i, points: pts })) { gain(pts, correct ? "Remembered!" : ""); paintLearner(true); }
+  }
+
+  function finishSlide() {
+    const complete = allDone(), lv = level(S.stats.total || 0);
+    const says = S.feed.cards.filter((c) => c.say).slice(0, 3);
+    const head = el("header", { class: "shead g-finish" }, el("div", { class: "big", text: complete ? "🎉" : "👀" }),
+      el("h2", { text: complete ? "Brief complete!" : "Almost there" }),
+      el("p", { class: "sub", text: complete ? "You're caught up on today." + (S.stats.streak > 1 ? " That's " + S.stats.streak + " days in a row." : " Come back tomorrow to start a streak.") : readCount() + " of " + S.feed.cards.length + " cards read. Go back to finish the rest." }));
+    const inner = el("div", { class: "inner" },
+      el("div", { class: "finstats" },
+        el("div", {}, el("b", { text: S.stats.today || 0 }), el("span", { text: "points today" })),
+        el("div", {}, el("b", { text: (S.stats.streak || 0) + "🔥" }), el("span", { text: "day streak" })),
+        el("div", {}, el("b", { text: "Lv " + lv.n }), el("span", { text: lv.name }))),
+      el("div", { class: "xp big" }, el("i", { style: "width:" + lv.pct + "%" })),
+      el("p", { class: "muted small", style: "text-align:center;margin:0", text: lv.next ? lv.toNext + " points to " + lv.next : "Top level!" }));
+    if (says.length) inner.append(el("div", { class: "lines" }, el("b", { text: "Your conversation starters for today" }), el("ul", {}, says.map((c) => el("li", { text: c.say })))));
+    return el("article", { class: "slide" }, head, inner);
+  }
+
+  // Lightweight confetti; skipped when the user prefers reduced motion.
+  function confetti() {
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+    const cv = el("canvas", { class: "confetti", "aria-hidden": "true" }); document.body.append(cv);
+    const W = (cv.width = innerWidth * devicePixelRatio), H = (cv.height = innerHeight * devicePixelRatio), cx = cv.getContext("2d");
+    const cols = ["#FF7A45", "#FF2E83", "#7C5CFF", "#22C3A6", "#FFC53D", "#3DA5FF"];
+    const ps = Array.from({ length: 140 }, () => ({ x: W / 2, y: H * 0.35, vx: (Math.random() - 0.5) * 22 * devicePixelRatio, vy: (Math.random() * -18 - 6) * devicePixelRatio, r: (4 + Math.random() * 5) * devicePixelRatio, c: cols[(Math.random() * cols.length) | 0], a: Math.random() * 6 }));
+    let t = 0;
+    (function frame() {
+      cx.clearRect(0, 0, W, H);
+      for (const p of ps) { p.vy += 0.5 * devicePixelRatio; p.x += p.vx; p.y += p.vy; p.vx *= 0.99; p.a += 0.2; cx.save(); cx.translate(p.x, p.y); cx.rotate(p.a); cx.fillStyle = p.c; cx.fillRect(-p.r, -p.r / 2, p.r * 2, p.r); cx.restore(); }
+      if (++t < 110) requestAnimationFrame(frame); else cv.remove();
+    })();
   }
 
   /* ---------- parent view ---------- */
@@ -517,10 +642,9 @@
     const { data, error } = await sb.rpc("brief_admin_feed", { p_user: k.user_id, p_date: localDate() });
     if (error) return toast(friendly(error));
     if (!data) return toast("No brief written yet");
-    S.feed = data; S.preview = k; S.events = new Map(); S.stats = k.stats || { total: 0, week: 0, today: 0, streak: 0 }; S.note = null; S.open = data.cards[0] && data.cards[0].id;
+    S.feed = data; S.preview = k; S.events = new Map(); S.stats = k.stats || { total: 0, week: 0, today: 0, streak: 0 }; S.note = null; S.view = "home";
     S.me = Object.assign({}, S.me, { learner: { name: k.name } });
     paintLearner();
-    $app.prepend(el("div", { class: "preview-banner" }, el("span", { text: "Preview of " + k.name + "'s brief for " + prettyDate(data.feed_date, { weekday: "short", month: "short" }) + ". Nothing is recorded." }), el("button", { class: "btn ghost", onclick: () => { S.preview = null; S.me.learner = null; route(); } }, "Back")));
     window.scrollTo(0, 0);
   }
 
@@ -600,8 +724,12 @@
     return box;
   }
 
-  // Coming back to the app (e.g. from a notification) refreshes the brief.
-  document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible" && S.user && S.me && S.me.learner && !S.preview && $sheet.hidden) { S.open = null; route(); } });
+  // Coming back after a while (e.g. from a notification) refreshes the brief; a quick trip to a source link doesn't.
+  let hiddenAt = 0;
+  document.addEventListener("visibilitychange", () => {
+    if (document.visibilityState === "hidden") { hiddenAt = Date.now(); return; }
+    if (hiddenAt && Date.now() - hiddenAt > 5 * 60 * 1000 && S.user && S.me && S.me.learner && !S.preview && $sheet.hidden) { S.view = "home"; route(); }
+  });
   window.__brief = { S, sb, route };
   route();
 })();
