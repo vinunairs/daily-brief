@@ -38,7 +38,8 @@
             profile: { strengths: ["estimation"], gaps: ["health vocabulary"], interests: ["AI"], direction: "Early days: 1 day of data." },
             stats: { total: 57, week: 57, streak: 1, days: Array.from({ length: 14 }, (_, i) => ({ d: "2026-09-" + String(15 + i).padStart(2, "0"), pts: i === 13 ? 57 : 0, read: i === 13 ? 10 : 0 })) },
             reports: [{ date: "2026-09-29", summary: "Rishabh read all 10 cards yesterday.", metrics: { accuracy_by_category: { finance: 1, tech: 0.5, health: 1, reasoning: 0.5, skills: 1 } } }],
-            opinions: [{ date: "2026-09-28", card: "n2", answer: "Holding back soybeans keeps leverage for the next round.", score: 2 }] }] };
+            opinions: [{ date: "2026-09-28", card: "n2", answer: "Holding back soybeans keeps leverage for the next round.", score: 2 }] },
+            { user_id: "u3", name: "Mom", band: "adult", age: 44, active: true, private: true, stats: { total: 12, week: 12, streak: 1, days: [] } }] };
           if (fn === "brief_admin_feed") return { data: feed };
           if (fn === "brief_admin_day") return { data: { date: feed.feed_date, days: [feed.feed_date], feed,
             events: [{ card: feed.cards[0].id, kind: "read", ms: 42000 }, { card: feed.cards[0].id, kind: "check", correct: false, choice: (feed.cards[0].check.a + 1) % 4 },
@@ -48,7 +49,7 @@
           return { data: null };
         },
         from: q,
-        functions: { invoke: async () => ({}) }
+        functions: { invoke: async (fn, o) => { window.__INVOKES = (window.__INVOKES || []).concat([{ fn, body: o && o.body }]); return { data: { ok: true, status: "invited" } }; } }
       };
     }
   };

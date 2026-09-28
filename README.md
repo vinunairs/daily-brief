@@ -82,12 +82,11 @@ All tables are prefixed `brief_` and don't touch Test Prep Hub's data.
 
 Functions: `brief_me()`, `brief_stats()`, `brief_admin_overview()`, `brief_admin_feed()`, `brief_admin_day()`, `brief_admin_set_goals()` and `brief_admin_set_interests()` (admin only), `brief_streak_for()` (server only).
 
-**Add a learner** (e.g. a younger child): they need a Test Prep Hub account, then
-```sql
-insert into brief_learners (user_id, display_name, band, grade)
-values ('<their user id>', 'Name', 'explorer', '3');   -- explorer 3–5, builder 6–8, challenger 9–12
-```
-The morning job picks them up the next day.
+**Add a person** from the Parent view (name, email, age). If the email already has an account it's reused; otherwise the `brief-admin` function creates a single-use invite code (the signup trigger requires one) and emails an invitation, and they pick a password when they open it. Age sets the reading level: 10 and under → explorer, 11–13 → builder, 14–18 → challenger, 19+ → adult. Age can be changed, and anyone can be paused, from their card. The morning job picks new people up the next day.
+
+**Adults' privacy:** for adults other than the admin, the Parent view shows only activity numbers; their answers, evaluations and likes stay private to them.
+
+**Sign-in:** Daily Brief keeps its own sign-in (storage key `daily-brief-auth`), separate from Test Prep Hub's, even though both are on the same domain. An admin who is also a learner opens their own brief by default and switches with ☰ → Parent view.
 
 ## Parent view
 

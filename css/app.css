@@ -414,3 +414,8 @@ body.in-deck{overflow:hidden}
 .rx.on{background:var(--grad-cta);border-color:transparent;color:#fff}
 .rx.on.down{background:var(--graphite);color:var(--paper)}
 .tile .heart{position:absolute;bottom:10px;right:10px;font-size:16px}
+
+.addform{display:grid;grid-template-columns:1fr 1fr 90px;gap:8px}
+.addform input{width:100%;min-width:0;border:1.5px solid var(--line);border-radius:10px;padding:10px 12px;background:var(--surface);font-size:16px;color:var(--ink)}
+@media (max-width:420px){.addform{grid-template-columns:1fr 90px}.addform input[type=text]{grid-column:1/-1}}
+input[type=number]{border:1.5px solid var(--line);border-radius:10px;padding:10px 12px;background:var(--surface);font-size:16px;color:var(--ink)}

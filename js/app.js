@@ -23,8 +23,11 @@
 
   if (!window.supabase || !window.supabase.createClient) { $app.textContent = "Couldn't load. Check your connection and reopen."; return; }
   const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY, {
-    auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true, flowType: "implicit" }
+    // Own storage key: Daily Brief keeps its own sign-in instead of sharing Test Prep Hub's on the same domain.
+    auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true, flowType: "implicit", storageKey: "daily-brief-auth" }
   });
+  // Arriving from an invitation email: ask them to choose a password first.
+  const FROM_INVITE = /type=invite/.test(location.hash);
 
   /* ---------- helpers ---------- */
   function el(tag, attrs, ...kids) {
@@ -84,11 +87,12 @@
       S.user = session ? session.user : null;
       $menu.hidden = !S.user;
       if (!S.user) return renderSignIn();
+      if (FROM_INVITE && !S.passwordSet) return renderNewPassword(true);
       const { data: me, error } = await sb.rpc("brief_me");
       if (error) throw error;
       S.me = me || {};
+      if (S.me.admin && (S.parentMode || !(S.me.learner && S.me.learner.active))) return await renderParent();
       if (S.me.learner && S.me.learner.active) return await renderLearner();
-      if (S.me.admin) return await renderParent();
       renderNoAccess();
     } catch (e) {
       $app.replaceChildren(el("div", { class: "card pad" }, el("p", { text: "Couldn't load your brief. " + friendly(e) }), el("button", { class: "btn", onclick: () => route() }, "Try again")));
@@ -112,7 +116,7 @@
       if (error) msg.textContent = /invalid/i.test(error.message) ? "That email and password don't match." : friendly(error);
     } },
       el("h1", { text: "Ten minutes. Every day." }),
-      el("p", { class: "muted", text: "The news that matters, a reasoning workout and a life skill, picked for you each morning. Sign in with your Test Prep Hub account." }),
+      el("p", { class: "muted", text: "The news that matters, a reasoning workout and a life skill, picked for you each morning. Sign in with your family account." }),
       el("label", { class: "f", for: "em" }, "Email", email),
       el("label", { class: "f", for: "pw" }, "Password", pw),
       btn, msg,
@@ -123,14 +127,16 @@
       } }, "Forgot password?"));
     $app.replaceChildren(form);
   }
-  function renderNewPassword() {
+  function renderNewPassword(welcome) {
     const pw = el("input", { type: "password", autocomplete: "new-password", minlength: "8", required: true, id: "npw" });
     const msg = el("p", { class: "err", role: "alert" });
     $app.replaceChildren(el("form", { class: "auth", onsubmit: async (e) => {
       e.preventDefault();
       const { error } = await sb.auth.updateUser({ password: pw.value });
-      if (error) msg.textContent = friendly(error); else { toast("Password updated"); route(); }
-    } }, el("h1", { text: "Set a new password" }), el("label", { class: "f", for: "npw" }, "New password (8+ characters)", pw), el("button", { class: "btn primary block", type: "submit" }, "Save password"), msg));
+      if (error) msg.textContent = friendly(error); else { S.passwordSet = true; history.replaceState(null, "", location.pathname); toast(welcome ? "Welcome to Daily Brief!" : "Password updated"); route(); }
+    } }, el("h1", { text: welcome ? "Welcome! Pick a password" : "Set a new password" }),
+      welcome ? el("p", { class: "muted", text: "You'll use your email and this password to sign in to Daily Brief." }) : null,
+      el("label", { class: "f", for: "npw" }, "New password (8+ characters)", pw), el("button", { class: "btn primary block", type: "submit" }, "Save password"), msg));
   }
   function renderNoAccess() {
     $app.replaceChildren(el("div", { class: "auth" }, el("h1", { text: "Almost there" }),
@@ -657,10 +663,69 @@
     const { data, error } = await sb.rpc("brief_admin_overview");
     if (error) throw error;
     const kids = data || [];
-    const nodes = [el("section", { class: "hero" }, el("div", { class: "date", text: prettyDate(localDate()) }), el("h1", { text: "Parent view" }))];
-    if (!kids.length) nodes.push(el("div", { class: "card pad", text: "No learners yet." }));
-    for (const k of kids) nodes.push(kidView(k));
+    const mine = S.me.learner && S.me.learner.active;
+    const nodes = [el("section", { class: "hero" }, el("div", { class: "date", text: prettyDate(localDate()) }), el("h1", { text: "Parent view" }),
+      mine ? el("button", { class: "btn signal", style: "margin-top:10px", onclick: () => { S.parentMode = false; S.view = "home"; route(); } }, "Open my own brief →") : null)];
+    if (!kids.length) nodes.push(el("div", { class: "card pad", text: "No one added yet." }));
+    for (const k of kids) nodes.push(k.private ? privateView(k) : kidView(k));
+    nodes.push(addPersonView());
     $app.replaceChildren(...nodes);
+  }
+
+  const BAND = { explorer: "Grades 3–5 level", builder: "Middle-school level", challenger: "High-school level", adult: "Adult level" };
+  const who = (k) => (k.age ? "Age " + k.age + " · " : "") + (BAND[k.band] || k.band) + (k.active === false ? " · paused" : "");
+
+  // Edit age (which sets the reading level) and pause/resume.
+  function personSettings(k) {
+    const age = el("input", { type: "number", min: "5", max: "100", value: k.age || "", "aria-label": "Age", style: "width:90px" });
+    const msg = el("span", { class: "muted small", role: "status" });
+    const call = async (patch) => {
+      msg.textContent = "Saving…";
+      const { data, error } = await sb.functions.invoke("brief-admin", { body: Object.assign({ action: "update", user_id: k.user_id }, patch) });
+      if (error || (data && data.error)) { msg.textContent = (data && data.error) || "Couldn't save."; return; }
+      msg.textContent = "Saved. Tomorrow's brief will follow it."; setTimeout(route, 700);
+    };
+    return el("details", { class: "goalsbox" }, el("summary", { text: "Age and settings" }),
+      el("div", { class: "addgoal" }, el("label", { class: "f", style: "flex:1" }, "Age (sets the reading level)", age),
+        el("button", { class: "btn", style: "align-self:end", onclick: () => call({ age: age.value === "" ? null : +age.value }) }, "Save age")),
+      el("div", { class: "actions" }, el("button", { class: "btn ghost", onclick: () => call({ active: k.active === false }) }, k.active === false ? "Resume Daily Brief" : "Pause Daily Brief"), msg),
+      k.email ? el("p", { class: "muted small", style: "margin:0", text: "Signs in as " + k.email }) : null);
+  }
+
+  // Other adults: activity only; their answers stay private.
+  function privateView(k) {
+    const st = k.stats || {};
+    return el("article", { class: "card kid" },
+      el("div", { class: "row", style: "display:flex;justify-content:space-between;align-items:baseline;gap:10px" }, el("h2", { text: k.name }), el("span", { class: "muted small", text: who(k) })),
+      el("div", { class: "stats" },
+        el("div", { class: "stat" + (st.streak ? " hot" : "") }, el("b", { text: (st.streak || 0) + "🔥" }), el("span", { text: "day streak" })),
+        el("div", { class: "stat" }, el("b", { text: st.week || 0 }), el("span", { text: "points this week" })),
+        el("div", { class: "stat" }, el("b", { text: st.total || 0 }), el("span", { text: "all-time points" }))),
+      el("p", { class: "muted small", style: "margin:0", text: "Adults' answers and evaluations are private to them." }),
+      personSettings(k));
+  }
+
+  function addPersonView() {
+    const name = el("input", { type: "text", maxlength: "40", placeholder: "First name", "aria-label": "First name" });
+    const email = el("input", { type: "email", placeholder: "Email", "aria-label": "Email" });
+    const age = el("input", { type: "number", min: "5", max: "100", placeholder: "Age", "aria-label": "Age" });
+    const hint = el("p", { class: "muted small", style: "margin:0", text: "Reading level follows age: 10 and under, 11–13, 14–18, or adult." });
+    const msg = el("p", { class: "small", role: "status", style: "margin:0" });
+    const btn = el("button", { class: "btn primary", onclick: async () => {
+      if (!name.value.trim() || !email.value.trim()) { msg.textContent = "Add a name and email."; return; }
+      btn.disabled = true; msg.textContent = "Adding…";
+      const { data, error } = await sb.functions.invoke("brief-admin", { body: { action: "add", name: name.value.trim(), email: email.value.trim(), age: age.value === "" ? null : +age.value } });
+      btn.disabled = false;
+      if (error || (data && data.error)) { msg.textContent = (data && data.error) || "Couldn't add them. Try again."; return; }
+      msg.textContent = data.status === "invited"
+        ? "Invitation sent to " + email.value.trim() + ". They open the email, pick a password, and their first brief arrives the next morning."
+        : "Added. They sign in with their existing account; their first brief arrives the next morning.";
+      name.value = ""; email.value = ""; age.value = "";
+      setTimeout(route, 2500);
+    } }, "Add to Daily Brief");
+    return el("article", { class: "card kid" }, el("h2", { text: "Add a person" }),
+      el("p", { class: "muted small", style: "margin:0", text: "Kids, your spouse or yourself. If the email already has an account (like a Test Prep Hub account), it's reused; otherwise they get an invitation email." }),
+      el("div", { class: "addform" }, name, email, age), hint, el("div", { class: "actions" }, btn), msg);
   }
 
   function kidView(k) {
@@ -669,7 +734,7 @@
     const max = Math.max(10, ...days.map((d) => d.pts));
     const card = el("article", { class: "card kid" },
       el("div", { class: "row", style: "display:flex;justify-content:space-between;align-items:baseline;gap:10px" },
-        el("h2", { text: k.name }), el("span", { class: "muted small", text: "Grade " + (k.grade || "?") + " · " + k.band + (k.notify ? " · 🔔 on" : " · 🔕 notifications off") })),
+        el("h2", { text: k.name + (k.self ? " (you)" : "") }), el("span", { class: "muted small", text: who(k) + (k.notify ? " · 🔔 on" : " · 🔕 notifications off") })),
       el("div", { class: "stats" },
         el("div", { class: "stat" + (st.streak ? " hot" : "") }, el("b", { text: (st.streak || 0) + "🔥" }), el("span", { text: "day streak" })),
         el("div", { class: "stat" }, el("b", { text: st.week || 0 }), el("span", { text: "points this week" })),
@@ -717,7 +782,7 @@
         up.length ? el("div", {}, el("div", { class: "eyebrow", text: "Liked" }), el("div", { class: "pills" }, up.slice(0, 12).map((x) => el("span", { class: "pill good", text: x.title })))) : null,
         down.length ? el("div", { style: "margin-top:8px" }, el("div", { class: "eyebrow", text: "Not for me" }), el("div", { class: "pills" }, down.slice(0, 12).map((x) => el("span", { class: "pill", text: x.title })))) : null));
     }
-    card.append(goalsEditor(k), interestsEditor(k));
+    card.append(goalsEditor(k), interestsEditor(k), personSettings(k));
     if (ops.length) {
       const det = el("details", {}, el("summary", { text: "Recent \"your take\" answers (" + ops.length + ")" }));
       for (const o of ops) det.append(el("div", { class: "op" }, el("div", { class: "muted small", text: o.date + (o.score != null ? " · reasoning " + o.score + "/3" : " · not scored yet") }), el("q", { text: o.answer })));
@@ -856,6 +921,7 @@
     $sheet.replaceChildren(panel); $sheet.hidden = false;
     const isLearner = S.me && S.me.learner && S.me.learner.active && !S.preview;
     if (isLearner) panel.append(await notifySection());
+    if (S.me && S.me.admin && !S.parentMode) panel.append(el("button", { class: "btn", onclick: () => { closeSheet(); S.parentMode = true; S.view = "home"; route(); } }, "👨‍👩‍👧 Parent view"));
     panel.append(el("div", { style: "display:grid;gap:8px" }, el("div", { class: "eyebrow", text: "Account" }), el("p", { class: "small", style: "margin:0", text: "Signed in as " + (S.user && S.user.email) }), el("button", { class: "btn ghost", onclick: signOut }, "Sign out")));
   }
   $menu.addEventListener("click", openSettings);
