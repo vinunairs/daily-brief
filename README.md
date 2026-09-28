@@ -14,6 +14,10 @@ Ten minutes a day: five short news summaries (finance, tech, health, world; US a
 2. **Notification** — `supabase/functions/brief-push`, run hourly by `pg_cron` (`brief-push-hourly`, minute 5). Sends one notification at the learner's chosen hour once the brief exists, and skips it if they've already finished.
 3. **The app** — sign in with the Test Prep Hub account. The home screen shows today's progress ring, streak, level and XP, the coach's note and today's lineup. Tap Start to go through the brief as full-screen story cards (swipe or tap to move on), with instant points, level-ups and a celebration at the end. The recall quiz unlocks after 6 cards. The brief always ends after 10 cards; there's no endless feed.
 
+## Help for a beginner
+
+Every news card has a **Catch me up** backstory, key words he can tap to see what they mean, and an **I don't get it** button that shows a simpler version and lets him ask a question. The next morning's brief answers his questions (the "You asked" box on the home screen), and each tap or question is a signal the evaluation uses. For his first 21 briefs, the first card each day is a **Foundations** card explaining one core concept behind that day's news (inflation, the Fed, tariffs, AI models, vaccines and so on).
+
 ## Growth goals
 
 Each learner has a list of goals set by the parent (Parent view → Growth goals). The morning job builds every brief around them: each goal gets at least two cards a week, and newly added goals get extra attention.
@@ -37,6 +41,7 @@ Rookie (0) → Reader (150) → Informed (400) → Sharp (800) → Insider (1,40
 | Private reflection | 5 |
 | Mission check-in: did it / partly / not yet | 10 / 6 / 2 |
 | Recall quiz right / wrong | 10 / 2 |
+| "I don't get it" / asking a question | 1 / 3 |
 | Finish all 10 cards | 20 |
 
 A day counts toward the streak when 6+ cards are read. Answer choices are shuffled per question so the right answer isn't always in the same position.

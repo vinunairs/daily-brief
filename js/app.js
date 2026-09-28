@@ -10,8 +10,8 @@
   const SITE = location.origin + location.pathname;
   const TZ = "America/New_York";
   const QUIZ_UNLOCK = 6; // cards read before the recall quiz opens
-  const PTS = { readLong: 3, readShort: 1, right: 8, wrong: 2, opinion: 5, reflect: 5, recallRight: 10, recallWrong: 2, complete: 20, mission: [2, 6, 10] };
-  const CAT = { finance: "Finance", tech: "Tech", health: "Health", world: "World", reasoning: "Reasoning", skills: "Life skills", social: "People skills" };
+  const PTS = { readLong: 3, readShort: 1, right: 8, wrong: 2, opinion: 5, reflect: 5, recallRight: 10, recallWrong: 2, complete: 20, mission: [2, 6, 10], confused: 1, ask: 3 };
+  const CAT = { basics: "Foundations", finance: "Finance", tech: "Tech", health: "Health", world: "World", reasoning: "Reasoning", skills: "Life skills", social: "People skills" };
   const KIND = { estimation: "Estimate it", flaw: "Spot the flaw", logic: "Logic", pattern: "Pattern", triage: "Triage", interview: "Interview", money: "Money", workplace: "Work smarts", communication: "Communication", decision: "Decisions",
     conversation: "Conversation", jargon: "Jargon", street: "Street smarts", self: "Self-check" };
   const SOCIAL = new Set(["conversation", "communication"]);
@@ -165,14 +165,14 @@
     const lo = LEVELS[i][0], hi = i < LEVELS.length - 1 ? LEVELS[i + 1][0] : lo + 3000;
     return { n: i + 1, name: LEVELS[i][1], pct: Math.min(100, Math.round((100 * (total - lo)) / (hi - lo))), toNext: hi - total, next: LEVELS[i + 1] ? LEVELS[i + 1][1] : null };
   }
-  const EMOJI = { finance: "💰", tech: "🤖", health: "🧬", world: "🌍", Kerala: "🌴", India: "🇮🇳", estimation: "🔢", flaw: "🔍", logic: "🧠", pattern: "📈", triage: "⏱️",
+  const EMOJI = { basics: "📚", finance: "💰", tech: "🤖", health: "🧬", world: "🌍", Kerala: "🌴", India: "🇮🇳", estimation: "🔢", flaw: "🔍", logic: "🧠", pattern: "📈", triage: "⏱️",
     conversation: "💬", jargon: "📖", street: "🛡️", self: "🪞", interview: "🎤", money: "💵", workplace: "💼", decision: "⚖️", communication: "🗣️" };
   function tagFor(c) {
-    const cat = c.type === "news" ? (CAT[c.cat] ? c.cat : "world") : c.type === "reasoning" ? "reasoning" : SOCIAL.has(c.kind) ? "social" : "skills";
-    const label = c.type === "news" ? CAT[cat] : KIND[c.kind] || CAT[cat];
+    const cat = catOf(c);
+    const label = c.type === "news" || c.type === "basics" ? CAT[cat] : KIND[c.kind] || CAT[cat];
     return el("span", { class: "tag " + cat, text: label });
   }
-  function catOf(c) { return c.type === "news" ? (CAT[c.cat] ? c.cat : "world") : c.type === "reasoning" ? "reasoning" : SOCIAL.has(c.kind) ? "social" : "skills"; }
+  function catOf(c) { return c.type === "basics" ? "basics" : c.type === "news" ? (CAT[c.cat] ? c.cat : "world") : c.type === "reasoning" ? "reasoning" : SOCIAL.has(c.kind) ? "social" : "skills"; }
   function emojiOf(c) { return c.type === "news" ? EMOJI[c.region] || EMOJI[c.cat] || "📰" : EMOJI[c.kind] || "✨"; }
   const deckItems = () => [...S.feed.cards.map((c) => ({ t: "card", c })), ...(S.feed.quiz && S.feed.quiz.length ? [{ t: "quiz" }] : []), { t: "finish" }];
   const allDone = () => readCount() >= S.feed.cards.length && (S.feed.quiz || []).every((q) => has(q.id, "recall"));
@@ -222,12 +222,13 @@
       el("div", { class: "cta-sub muted small", text: done ? "All done for today. Nice work." : "About " + Math.max(1, total - n) + " min · " + (total - n) + " cards left" })));
     if (S.feed.feed_date !== today && !S.preview) nodes.push(el("div", { class: "stale", text: "Today's brief isn't ready yet, so here's the latest one (" + prettyDate(S.feed.feed_date, { weekday: "short", month: "short" }) + ")." }));
     if (S.note && S.note.note) nodes.push(el("div", { class: "coach2" }, el("div", { class: "av", text: "🧭" }), el("div", {}, el("b", { text: "Coach" }), el("p", { text: S.note.note }))));
+    nodes.push(answersView());
     nodes.push(missionView());
     nodes.push(el("div", { class: "section-h" }, el("h3", { text: "Today's lineup" }), el("span", { class: "muted small", text: n + "/" + total + " read" })));
     nodes.push(el("div", { class: "tiles" }, S.feed.cards.map((c, i) => {
       const read = has(c.id, "read");
       return el("button", { class: "tile g-" + catOf(c) + (read ? " read" : ""), onclick: () => openDeck(i) },
-        el("span", { class: "te", text: emojiOf(c) }), el("span", { class: "tk", text: c.type === "news" ? CAT[catOf(c)] : KIND[c.kind] || CAT[catOf(c)] }),
+        el("span", { class: "te", text: emojiOf(c) }), el("span", { class: "tk", text: (c.type === "news" || c.type === "basics") ? CAT[catOf(c)] : KIND[c.kind] || CAT[catOf(c)] }),
         el("span", { class: "tt", text: c.title }), read ? el("span", { class: "tick", text: "✓" }) : null);
     })));
     const qz = S.feed.quiz || [];
@@ -307,12 +308,14 @@
     if (!S.opened[c.id]) S.opened[c.id] = Date.now();
     const cat = catOf(c);
     const head = el("header", { class: "shead g-" + cat },
-      el("div", { class: "meta" }, el("span", { class: "chip", text: c.type === "news" ? CAT[cat] : KIND[c.kind] || CAT[cat] }), c.region ? el("span", { class: "chip ghost", text: c.region }) : null),
+      el("div", { class: "meta" }, el("span", { class: "chip", text: (c.type === "news" || c.type === "basics") ? CAT[cat] : KIND[c.kind] || CAT[cat] }), c.region ? el("span", { class: "chip ghost", text: c.region }) : null),
       el("div", { class: "big", text: emojiOf(c) }),
       el("h2", { text: c.title }));
     const inner = el("div", { class: "inner" });
-    inner.append(el("div", { class: "body", text: c.body }));
+    inner.append(bodyWithWords(c));
+    if (c.context) inner.append(el("details", { class: "catchup" }, el("summary", {}, "🧭 Catch me up: what's the backstory?"), el("p", { text: c.context })));
     if (c.why) inner.append(el("div", { class: "why" }, el("b", { text: "Why it matters" }), c.why));
+    inner.append(helpView(c));
     if (Array.isArray(c.terms) && c.terms.length) inner.append(el("dl", { class: "terms" }, c.terms.map((t) => [el("dt", { text: t.term }), el("dd", {}, t.means, t.example ? el("span", { class: "ex", text: "e.g. " + t.example }) : null)])));
     if (Array.isArray(c.lines) && c.lines.length) inner.append(el("div", { class: "lines" }, el("b", { text: "Try saying" }), el("ul", {}, c.lines.map((l) => el("li", { text: l })))));
     if (c.say) inner.append(el("div", { class: "say" }, el("b", { text: "💬 Bring it up with friends" }), c.say));
@@ -327,6 +330,59 @@
       inner.append(el("p", { class: "muted small", text: "✓ Read · +" + earned + " points from this card" }));
     }
     return el("article", { class: "slide" + (S.dir < 0 ? " from-left" : " from-right"), id: "c-" + c.id }, head, inner);
+  }
+
+  // Story text with tappable key words; tapping shows the meaning right under the paragraph.
+  function bodyWithWords(c) {
+    const wrap = el("div", { class: "bodywrap" });
+    const body = el("div", { class: "body" });
+    const def = el("div", { class: "defbox", hidden: true });
+    const words = (Array.isArray(c.words) ? c.words : []).filter((w) => w && w.term && w.means);
+    const text = c.body || "", low = text.toLowerCase();
+    const hits = [];
+    for (const w of words) { const i = low.indexOf(w.term.toLowerCase()); if (i >= 0 && !hits.some((h) => i < h.i + h.n && h.i < i + w.term.length)) hits.push({ i, n: w.term.length, w }); }
+    hits.sort((a, b) => a.i - b.i);
+    let at = 0;
+    for (const h of hits) {
+      body.append(text.slice(at, h.i));
+      body.append(el("button", { class: "word", type: "button", onclick: (e) => {
+        const on = e.currentTarget.classList.toggle("on");
+        body.querySelectorAll(".word.on").forEach((b) => b !== e.currentTarget && b.classList.remove("on"));
+        def.hidden = !on; def.replaceChildren(el("b", { text: h.w.term }), " — " + h.w.means);
+      } }, text.slice(h.i, h.i + h.n)));
+      at = h.i + h.n;
+    }
+    body.append(text.slice(at));
+    wrap.append(body, def);
+    if (hits.length) wrap.append(el("div", { class: "muted small", text: "Tap an underlined word to see what it means." }));
+    return wrap;
+  }
+
+  // "I don't get it": shows a simpler version and lets him ask a question, answered in the next brief.
+  function helpView(c) {
+    const conf = S.events.get(evKey(c.id, "confused")), ask = S.events.get(evKey(c.id, "ask"));
+    const box = el("div", { class: "help" });
+    if (!conf && !S.preview) {
+      box.append(el("button", { class: "btn ghost helpbtn", onclick: async () => {
+        if (await record({ card_id: c.id, kind: "confused", points: PTS.confused })) { gain(PTS.confused, "Good call asking"); paintLearner(true); }
+      } }, "🤔 I don't get it"));
+      return box;
+    }
+    if (c.simple) box.append(el("div", { class: "simple" }, el("b", { text: "In simpler words" }), c.simple));
+    if (S.preview) return box;
+    if (ask) { box.append(el("div", { class: "asked" }, el("b", { text: "Your question" }), el("q", { text: ask.answer }), el("span", { class: "muted small", text: "You'll get an answer in tomorrow's brief. +" + ask.points }))); return box; }
+    const ta = el("textarea", { placeholder: "What's still confusing? Ask anything. (+" + PTS.ask + ")", maxlength: "400", "aria-label": "Your question" });
+    const save = el("button", { class: "btn", disabled: true, onclick: () => saveText(c, "ask", ta.value.trim(), PTS.ask) }, "Ask");
+    ta.addEventListener("input", () => (save.disabled = ta.value.trim().length < 5));
+    box.append(ta, el("div", { class: "actions" }, save, el("span", { class: "muted small", text: "Answered in tomorrow's brief." })));
+    return box;
+  }
+
+  function answersView() {
+    const a = S.feed.extras && S.feed.extras.answers;
+    if (!Array.isArray(a) || !a.length) return null;
+    return el("section", { class: "answers" }, el("div", { class: "eyebrow", text: "❓ You asked" }),
+      a.map((x) => el("div", { class: "qa" }, el("b", { text: x.q }), el("p", { text: x.a }))));
   }
 
   function checkView(c) {
@@ -619,6 +675,8 @@
         if (c.talk) box.append(el("div", { class: "aq", text: "💬 " + c.talk }), op ? el("div", { class: "his text" }, el("q", { text: op.answer }), el("span", { class: "muted small", text: op.score != null ? " · reasoning " + op.score + "/3" : " · not scored yet" })) : el("div", { class: "his none", text: "No take written" }));
         const rf = ev[c.id + ":reflect"];
         if (c.reflect) box.append(el("div", { class: "aq", text: "🪞 " + c.reflect }), rf ? el("div", { class: "his text" }, el("q", { text: rf.answer })) : el("div", { class: "his none", text: "No reflection written" }));
+        if (ev[c.id + ":confused"]) box.append(el("div", { class: "his wrong", text: "🤔 Tapped \"I don't get it\"" }));
+        if (ev[c.id + ":ask"]) box.append(el("div", { class: "his text" }, el("span", { class: "muted small", text: "His question: " }), el("q", { text: ev[c.id + ":ask"].answer })));
         if (c.mission) box.append(el("div", { class: "muted small", text: "🎯 Mission: " + c.mission }));
         if (notes[c.id]) box.append(el("div", { class: "note" }, el("b", { text: "Coach: " }), notes[c.id]));
         nodes.push(box);

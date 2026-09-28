@@ -353,3 +353,23 @@ body.in-deck{overflow:hidden}
 @keyframes floatup{0%{opacity:0;transform:translate(-50%,10px) scale(.8)}20%{opacity:1;transform:translate(-50%,0) scale(1.08)}100%{opacity:0;transform:translate(-50%,-60px) scale(1)}}
 .confetti{position:fixed;inset:0;width:100vw;height:100vh;pointer-events:none;z-index:50}
 @media (prefers-reduced-motion:reduce){.hero2::after,.cta::before,.flame.lit .fl{animation:none}}
+
+/* help for beginners */
+.g-basics{--g1:#0EA5A4;--g2:#16A34A}
+.word{display:inline;font:inherit;color:inherit;background:none;border:0;padding:0;border-bottom:2px dotted var(--signal);cursor:pointer;line-height:inherit}
+.word.on{background:var(--signal-soft);border-bottom-style:solid;border-radius:3px}
+.defbox{margin-top:8px;background:var(--surface);border:1.5px solid var(--signal);border-radius:12px;padding:10px 12px;font-size:15px;animation:inR .2s ease}
+.bodywrap{display:grid;gap:4px}
+.catchup{background:var(--sunk);border-radius:14px;padding:10px 14px}
+.catchup summary{font-weight:700;font-size:15px;list-style:none}
+.catchup summary::-webkit-details-marker{display:none}
+.catchup p{margin:8px 0 2px;font-family:var(--read);font-size:16px;line-height:1.55}
+.help{display:grid;gap:8px}
+.helpbtn{justify-self:start;font-size:14px;min-height:40px;padding:8px 14px}
+.simple{background:linear-gradient(145deg,#E0FBF4,#E6F0FF);border-radius:14px;padding:12px 14px;font-family:var(--read);font-size:16.5px;line-height:1.55;color:#10202B}
+.simple b{display:block;font-family:var(--display);font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:#0E8A7E;margin-bottom:2px}
+.asked{background:var(--sunk);border-radius:12px;padding:10px 12px;display:grid;gap:4px}
+.asked b,.answers .eyebrow{font-size:11px;letter-spacing:.12em;text-transform:uppercase}
+.answers{margin:6px 0;display:grid;gap:8px;background:var(--surface);border:1px solid var(--line);border-radius:18px;padding:14px 16px}
+.qa b{display:block;font-size:15px}
+.qa p{margin:4px 0 0;font-family:var(--read);font-size:16px}

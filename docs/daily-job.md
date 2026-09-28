@@ -20,7 +20,7 @@ Pull the last 14 days:
 - `brief_events` (feed_date, card_id, kind, correct, choice, answer, ms, points, score)
 - `brief_feeds` (feed_date, cards, quiz, extras) for the same dates, so you can map card_id → category, kind, thread, and which goal it served.
 
-Compute over the **last 7 days**: days active (≥1 card read), cards read per day, median seconds per read card, quick-check accuracy by category (finance, tech, health, reasoning, skills, social; null if fewer than 2 attempts), recall-quiz accuracy, share of cards skipped without the check, opinion answers written and their average score, missions tried (kind='mission': choice 2 = did it, 1 = partly, 0 = not yet), how many cards each goal got, and which topics or card kinds he spends longest on or skips fastest.
+Compute over the **last 7 days**: days active (≥1 card read), cards read per day, median seconds per read card, quick-check accuracy by category (finance, tech, health, reasoning, skills, social; null if fewer than 2 attempts), recall-quiz accuracy, share of cards skipped without the check, opinion answers written and their average score, missions tried (kind='mission': choice 2 = did it, 1 = partly, 0 = not yet), "I don't get it" taps (kind='confused') and questions he asked (kind='ask', text in `answer`) by category and topic, how many cards each goal got, and which topics or card kinds he spends longest on or skips fastest.
 
 **Score yesterday's opinion answers** (kind='opinion', score is null) on a 0–3 rubric, judged on reasoning, never on which side he took:
 - +1 makes a clear point that answers the question
@@ -40,18 +40,21 @@ Compute over the **last 7 days**: days active (≥1 card read), cards read per d
   "threads": ["running story slugs worth continuing"],
   "goal_coverage": {"<goal text, shortened>": <cards in last 7 days>},
   "plan": "the current 1–2 week plan in 2–3 sentences (same as the report's plan)",
+  "basics_done": ["concepts covered by Foundations cards"],
   "updated": "TODAY" }
 ```
-Levels: start at 2. Raise one step after 5+ attempts at ≥80% in that category; lower one step after 5+ attempts at ≤40%. For `social`, use missions tried instead: raise after 3+ missions tried in a week, lower (easier missions) after a week with none tried. With under a week of data, say so in `direction` and change little.
+Levels: he is new to following the news, so start every level at 1 and keep them there for his first two weeks unless the evidence is clearly strong. Raise one step after 5+ attempts at ≥80% in that category; lower one step after 5+ attempts at ≤40%. For `social`, use missions tried instead: raise after 3+ missions tried in a week, lower (easier missions) after a week with none tried. With under a week of data, say so in `direction` and change little.
 
 **Parent report** → `insert into brief_reports (user_id, report_date, summary, metrics, answer_notes, knowledge, plan) values (..., TODAY, ...) on conflict (user_id, report_date) do update ...` (the report dated TODAY evaluates YESTERDAY's brief; Vinu reads it next to yesterday's answers)
 - `summary`: 4–7 plain sentences for Vinu. Cover what he did yesterday, the 7-day trend, progress on Vinu's goals (name the goals), what he's strong at, what's building up, missions tried, which content hooks him, and one concrete suggestion (e.g. "Ask him at dinner about the tariff story — he got the check right and wrote a thoughtful take"). If he was inactive, say so without drama and suggest a nudge. Don't diagnose or label.
-- `answer_notes`: `[{"card_id":"…","note":"…"}]`, one entry for every answer he gave YESTERDAY: each quick check, take, reflection, recall item (use the quiz id) and the mission check-in (card_id "mission"). One or two sentences each on what the answer shows: the concept he understood or missed, the likely misconception behind a wrong pick, how he reasoned (guessing, recalling, reasoning it out; very fast reads with wrong checks suggest skimming), and for takes and reflections, what stands out in how he thinks. Be specific and fair; praise real strengths.
+- `answer_notes`: `[{"card_id":"…","note":"…"}]`, one entry for every answer he gave YESTERDAY: each quick check, take, reflection, recall item (use the quiz id), each "I don't get it" tap and question, and the mission check-in (card_id "mission"). For confusion, name the missing background or vocabulary. One or two sentences each on what the answer shows: the concept he understood or missed, the likely misconception behind a wrong pick, how he reasoned (guessing, recalling, reasoning it out; very fast reads with wrong checks suggest skimming), and for takes and reflections, what stands out in how he thinks. Be specific and fair; praise real strengths.
 - `knowledge`: 3–6 sentences on what his answers over the last 7 days show about his knowledge base: solid areas, shaky areas, specific misconceptions, vocabulary he doesn't have yet, recall versus reasoning, and progress on Vinu's goals. Only draw conclusions the evidence supports; with little data, say what you'd need to see.
 - `plan`: the plan forward for the next 1–2 weeks, concrete: which concepts, topics and skills the briefs will emphasize and why, what the recall quiz will re-test, any difficulty changes, and 1–2 things Vinu can do at home (a dinner question tied to a story, an everyday errand that practices a skill). Store the gist in `profile.plan` too, and follow it when writing briefs.
 - `metrics`: `{"days_active_7d":n, "cards_read_7d":n, "median_read_seconds":n, "accuracy_by_category":{"finance":0-1|null,...}, "recall_accuracy_7d":0-1|null, "opinions_7d":n, "opinion_avg_score":0-3|null, "missions_tried_7d":n, "missions_offered_7d":n, "points_7d":n}`
 
 **Coach note** → `insert into brief_coach_notes (user_id, note_date, note) values (..., TODAY, ...) on conflict do update`. 1–2 sentences for the learner, specific and encouraging, no guilt. Mention something he actually did well (a correct tricky check, a strong take, a mission tried, a streak) or, if he was inactive, a light, curious invitation back.
+
+**His questions.** For every `ask` event from YESTERDAY, write a clear answer in 2–4 plain sentences he'll understand, with an everyday comparison where it helps. If the answer depends on current facts, look them up. These go in today's `extras.answers`.
 
 ## Step 2 — Research today's news
 
@@ -69,6 +72,8 @@ Prioritize: stories that continue the learner's running threads, stories people 
 
 Exactly **10 cards**, in this order: news, news, reasoning, news, growth, news, news, reasoning, growth, growth.
 
+**Foundations (he's new to the news).** For his first 21 briefs (count his rows in `brief_feeds`), the first card is a `basics` card instead of a news card, so that day has 4 news cards. After that, include a `basics` card (replacing the weakest news story) only on days after he tapped "I don't get it" twice or more, or asked a question that shows a missing concept. A basics card explains one core concept that appears in today's news, assuming zero prior knowledge, with an everyday analogy and one concrete number. Work through a curriculum in the order today's news makes useful: inflation; interest rates and the Fed; stocks and the stock market; bonds and yields; supply and demand; tariffs and trade; GDP, recessions and jobs reports; how oil prices work; what an AI model and an AI agent are; chips and why Nvidia matters; cybersecurity and scams; how vaccines and immunity work; clinical trials and the FDA; key world hotspots on a map (Middle East, Taiwan, Ukraine); how Congress passes a law; India's and Kerala's economy. Keep `profile.basics_done` (list of concepts covered) and revisit a concept from a new angle if he later shows confusion about it.
+
 - **5 news:** at least one each of finance, tech and health/science; the other two are the strongest remaining stories (any of those categories, or `world` for major global events). At least 2 US and 2 global. At least 2 continue a running thread from the last week (say so briefly, e.g. "Update on the oil story from Monday:"). Every news card has a `say` line: one natural, casual sentence he could use to bring the story up with friends his age, sounding like a teenager and not a textbook.
 - **2 reasoning:** rotate kinds: `estimation` (Fermi steps), `flaw` (spot the flaw in an argument), `logic` (a puzzle with one clear answer), `pattern`, and `triage` (a realistic overloaded day or conflicting demands: what to do first and why). At least one ties to today's news. Every numeric answer must be computed exactly (run the arithmetic).
 - **3 growth cards**, chosen from the goals with the lowest recent coverage:
@@ -77,7 +82,7 @@ Exactly **10 cards**, in this order: news, news, reasoning, news, growth, news, 
   - One rotates through `self` (self-analysis: a short prompt about his own habits, choices, energy or mistakes, with a `reflect` question), `interview`, `money`, `workplace` and `decision`, driven by the goals.
   - Where it fits, tie a growth card to one of today's news stories.
 
-**Follow the plan.** Build today's brief to carry out `profile.plan`: re-teach misconceptions from yesterday's answer notes (a quick check on the same idea from a new angle), and put the weakest concepts in the recall quiz.
+**Follow the plan.** Build today's brief to carry out `profile.plan`: re-teach misconceptions from yesterday's answer notes (a quick check on the same idea from a new angle), give extra `context` on topics he tapped "I don't get it" on, and put the weakest concepts in the recall quiz.
 
 **Tuning (the 70/30 rule).** About 70% of the brief is balanced core content no matter what. Up to 3 cards may use his interests as the hook or example. Never drop a category because he avoids it; instead make that card shorter and more concrete. Match each card's difficulty to `profile.levels` (level 1: shorter sentences, more context; level 3: more nuance, second-order effects, harder distractors). Put at least one stretch question in a "building up" area.
 
@@ -86,23 +91,30 @@ Exactly **10 cards**, in this order: news, news, reasoning, news, growth, news, 
 - `builder` (6–8): 60–80 words, simpler vocabulary, cause and effect, lighter skills (teamwork, saving, communication, making friends).
 - `explorer` (3–5): 40–60 words, short sentences, kid-relevant topics (science, space, animals, how money works, inventions, sports-science), no crime, war detail or frightening health stories; skills about kindness, sharing, saving, planning, talking to a new classmate; opinion questions simple ("Would you rather…? Why?"); jargon means everyday grown-up words, not slang.
 
+**Help for a beginner (every card).** Write as if he has never followed the news. Every news card has:
+- `context`: 2–3 sentences of backstory ("Catch me up"): who's involved, how we got here, assuming he knows nothing.
+- `words`: 2–4 key terms copied exactly as they appear in `body` (so the app can underline them), each with a plain meaning in under 25 words.
+- `simple`: the same story in 3–4 short sentences a 12-year-old would get, built around an everyday comparison.
+Reasoning and growth cards also get a `simple` (a hint or plainer explanation). Avoid unexplained jargon in `body` itself.
+
 **Card format** (JSON; fields marked optional may be left out):
 ```
-news:      {"id":"n1","type":"news","cat":"finance|tech|health|world","region":"US|Global|Kerala|India","thread":"slug","title":"…","body":"…","why":"one line: why it matters to him","say":"casual line to bring it up with friends","talk":"opinion question with a real trade-off","source":{"name":"…","url":"https://…"},"check":{"q":"…","o":["…","…","…","…"],"a":0-3,"e":"why the answer is right, and why the tempting wrong one is wrong"}}
+basics:    {"id":"b1","type":"basics","cat":"basics","concept":"inflation","title":"Foundations: …","body":"80–110 words, zero prior knowledge","why":"which of today's stories this unlocks","words":[…],"simple":"…","check":{…}}
+news:      {"id":"n1","type":"news","cat":"finance|tech|health|world","region":"US|Global|Kerala|India","thread":"slug","title":"…","body":"…","context":"…","words":[{"term":"exact text from body","means":"…"}],"simple":"…","why":"one line: why it matters to him","say":"casual line to bring it up with friends","talk":"opinion question with a real trade-off","source":{"name":"…","url":"https://…"},"check":{"q":"…","o":["…","…","…","…"],"a":0-3,"e":"why the answer is right, and why the tempting wrong one is wrong"}}
 reasoning: {"id":"r1","type":"reasoning","kind":"estimation|flaw|logic|pattern|triage","cat":"reasoning","title":"…","body":"…","check":{…},"tip":"optional"}
 growth:    {"id":"g1","type":"skill","kind":"conversation|jargon|street|self|interview|money|workplace|decision","cat":"skills","goal":"which of Vinu's goals this serves","title":"…","body":"…",
             "lines":["optional: things to say"],"terms":[{"term":"…","means":"…","example":"…"}] (optional),
             "check":{…} (optional for conversation and self; required otherwise),"mission":"optional: small real-world challenge for today","reflect":"optional: self-reflection question","tip":"optional"}
 ```
-Rules: ids n1–n5, r1–r2, g1–g3. Checks test understanding, not trivia. Four plausible options; one clearly correct. Spread the correct index across 0–3. Explanations never refer to options by letter or position (the app shuffles them). All writing is original; no quotations longer than a few words. At most one card per day has a `mission`, and at most one has a `reflect`.
+Rules: ids b1 (when present), n1–n5 (n1–n4 on basics days), r1–r2, g1–g3. Check that every `words` term appears verbatim in its card's `body`. Checks test understanding, not trivia. Four plausible options; one clearly correct. Spread the correct index across 0–3. Explanations never refer to options by letter or position (the app shuffles them). All writing is original; no quotations longer than a few words. At most one card per day has a `mission`, and at most one has a `reflect`.
 
 **Recall quiz** (`quiz`, 3 items): questions about earlier briefs, spaced out: one from YESTERDAY, one from ~3 days ago, one from ~7 days ago (nearest available). Prefer cards he got wrong, skipped, or read quickly; jargon terms make good recall items. Format: `{"id":"q1","ref":"YYYY-MM-DD of the source brief","thread":"slug","q":"…","o":[4],"a":0-3,"e":"…"}`. In the first week, use major news from the past 1–2 weeks instead.
 
-**Extras**: if YESTERDAY's brief had a card with a `mission`, set `extras` to `{"mission_checkin":{"text":"<that mission>","ref":"YESTERDAY"}}`; otherwise `{}`.
+**Extras**: an object with, when they apply, `mission_checkin` (if YESTERDAY's brief had a card with a `mission`: `{"text":"<that mission>","ref":"YESTERDAY"}`) and `answers` (his questions from yesterday with your answers: `[{"q":"<his question>","a":"<your answer>"}]`). Otherwise `{}`.
 
 **Headline**: one line (≤ 90 characters) naming 2–3 of today's stories, used in the notification.
 
-**Save**: validate first (10 cards, unique ids, every `a` within its options, all URLs start with https). Then:
+**Save**: validate first (10 cards, unique ids, every `a` within its options, all URLs start with https, every `words` term found in its body). Then:
 ```
 insert into brief_feeds (user_id, feed_date, cards, quiz, headline, extras)
 values ('<user_id>', 'TODAY', $j$<cards json>$j$::jsonb, $j$<quiz json>$j$::jsonb, $j$<headline>$j$, $j$<extras json>$j$::jsonb)

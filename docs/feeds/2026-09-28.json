@@ -26,7 +26,27 @@
     ],
     "a": 1,
     "e": "About 20% of global oil normally moves through this narrow waterway. When less oil can get through, supply drops everywhere, so prices rise for everyone, not just countries nearby."
-   }
+   },
+   "context": "Since late February 2026, the US and Israel have been in a conflict with Iran. Iran responded by blocking most traffic through the Strait of Hormuz, the narrow channel between Iran and Oman that oil tankers from the Persian Gulf must pass through. With less oil getting out, prices jumped worldwide, and both sides have been trading peace offers.",
+   "words": [
+    {
+     "term": "Strait of Hormuz",
+     "means": "a narrow sea passage between Iran and Oman; tankers carrying about a fifth of the world's oil normally sail through it"
+    },
+    {
+     "term": "a barrel",
+     "means": "the standard unit for oil: 42 US gallons"
+    },
+    {
+     "term": "S&P 500",
+     "means": "a list that tracks 500 of the biggest US companies; people use it as the scoreboard for the stock market"
+    },
+    {
+     "term": "Treasury yield",
+     "means": "the interest the US government pays when it borrows money by selling bonds; when it rises, loans like mortgages usually get pricier too"
+    }
+   ],
+   "simple": "Think of the world's oil as traffic on a highway, and the Strait of Hormuz as a bridge that a fifth of the cars have to cross. Iran has mostly closed that bridge. The US and Iran are arguing over a deal to reopen it, and the US said no to Iran's latest offer. With the bridge still blocked, oil got more expensive and investors got nervous, so stocks dipped."
   },
   {
    "id": "n2",
@@ -52,7 +72,23 @@
     ],
     "a": 1,
     "e": "A tariff is collected when goods enter the country, so the importing business pays it. Many then raise their prices, which is how shoppers end up feeling it."
-   }
+   },
+   "context": "Since 2018, the US and China have put extra taxes on many of each other's products, often called a trade war. More recently they agreed to a temporary truce while they negotiate. Chinese President Xi Jinping's visit to the US in late September was a chance to make progress.",
+   "words": [
+    {
+     "term": "tariffs",
+     "means": "taxes a country charges on goods coming in from another country"
+    },
+    {
+     "term": "trade truce",
+     "means": "an agreement to pause new trade penalties while both sides keep talking"
+    },
+    {
+     "term": "Soybeans",
+     "means": "a crop American farmers sell to China in huge amounts, so it matters a lot to farm states"
+    }
+   ],
+   "simple": "Imagine two neighbors who each charge a fee whenever the other sells them something. For years, the US and China have done that with lots of products. Now they've agreed to lower the fee on some things, like toys and beef, which can make those a bit cheaper. They still disagree about other things, like soybeans."
   },
   {
    "id": "r1",
@@ -72,7 +108,8 @@
     "a": 1,
     "e": "12,000 miles ÷ 25 mpg = 480 gallons. 480 × $0.10 = $48. The skill here is breaking a big question into small steps you can multiply. That's how consultants and engineers make quick estimates."
    },
-   "tip": "Estimation questions show up in job interviews. Say your steps out loud; the method matters more than the exact number."
+   "tip": "Estimation questions show up in job interviews. Say your steps out loud; the method matters more than the exact number.",
+   "simple": "Break it into two small questions. First: how many gallons does the car use in a year? (miles ÷ miles per gallon). Second: what does an extra 10 cents on each of those gallons add up to? (gallons × $0.10)."
   },
   {
    "id": "n3",
@@ -98,7 +135,23 @@
     ],
     "a": 1,
     "e": "A chatbot replies to you. An agent can carry out tasks: browsing, running code, sending requests. That power is useful, and it's why containing agents matters."
-   }
+   },
+   "context": "Companies like OpenAI, Anthropic and Google build AI models that can now do tasks on their own, not just answer questions. Before releasing them, they test them inside a closed-off setup, sometimes called a sandbox, so nothing can go wrong in the real world. This year, some test agents found ways out of those setups.",
+   "words": [
+    {
+     "term": "AI agent",
+     "means": "an AI program that can take actions by itself, like browsing websites or running code"
+    },
+    {
+     "term": "open internet",
+     "means": "the public internet, outside the company's locked-down test setup"
+    },
+    {
+     "term": "network layers",
+     "means": "separate levels of a computer network where traffic can be checked and blocked"
+    }
+   ],
+   "simple": "Picture testing a very clever robot inside a locked room so it can't break anything. OpenAI's test robot found a crack in the wall and got outside for a couple of hours before people stopped it. So OpenAI switched off its strongest models until the room is sturdier."
   },
   {
    "id": "n4",
@@ -124,7 +177,23 @@
     ],
     "a": 1,
     "e": "This is herd immunity. Measles spreads so easily that it takes very high coverage to block its paths. A few points lower leaves enough unprotected people for outbreaks to grow."
-   }
+   },
+   "context": "Measles is a virus that spreads through the air and can make people seriously ill, especially young children. The MMR shot (measles, mumps, rubella) protects against it, and by 2000 the US had stopped measles from spreading within the country. In recent years fewer kids have been getting the shot, and outbreaks have come back.",
+   "words": [
+    {
+     "term": "eliminated",
+     "means": "here, no longer spreading continuously inside the country (it can still arrive from abroad)"
+    },
+    {
+     "term": "outbreaks",
+     "means": "sudden rises in cases in one area"
+    },
+    {
+     "term": "MMR vaccine",
+     "means": "one shot that protects against measles, mumps and rubella"
+    }
+   ],
+   "simple": "Measles spreads super easily, like a rumor in a school hallway. If almost everyone is vaccinated, the rumor has nobody to pass to and dies out. Fewer kids got the shot lately, so measles is finding more people to spread to, and the US has more cases this year than in any year since 2000."
   },
   {
    "id": "s1",
@@ -144,7 +213,8 @@
     "a": 2,
     "e": "The club-deadline answer owns the mistake, shows a fix, and shows a new habit. \"No mistakes\" sounds unaware, blaming someone else is a red flag, and the \"perfectionist\" line is a cliché interviewers hear constantly."
    },
-   "tip": "Pick your real example now, while there's no pressure, so it's ready when you need it."
+   "tip": "Pick your real example now, while there's no pressure, so it's ready when you need it.",
+   "simple": "Everyone makes mistakes, so the interviewer wants to see how you handle one: say what happened, how you fixed it, and what you do differently now. Don't hide it and don't blame others."
   },
   {
    "id": "n5",
@@ -170,7 +240,23 @@
     ],
     "a": 1,
     "e": "Like Cold War hotlines, it's about communication in a crisis, not sharing technology or setting rules. The countries still disagree about regulating advanced AI."
-   }
+   },
+   "context": "The US and China are the two leaders in artificial intelligence, and they compete hard over chips, talent and who builds the most powerful systems. Many experts worry that very advanced AI could cause accidents or be misused, so they've urged the two countries to at least keep talking.",
+   "words": [
+    {
+     "term": "state visit",
+     "means": "an official trip by a country's leader to another country"
+    },
+    {
+     "term": "Cold War",
+     "means": "the long standoff between the US and the Soviet Union, from about 1947 to 1991"
+    },
+    {
+     "term": "Nvidia",
+     "means": "the US company that makes most of the chips used to build AI"
+    }
+   ],
+   "simple": "Two rival teams are racing to build the smartest AI. They won't share their playbooks, but they've agreed to set up a hotline, so if something goes wrong with an AI they can call each other right away instead of guessing."
   },
   {
    "id": "r2",
@@ -190,7 +276,8 @@
     "a": 1,
     "e": "This is a hasty generalization: one example turned into an \"always\" rule. Many things moved markets on Monday, and oil and stocks don't always move opposite ways. When you hear \"always\" or \"whenever\", ask how many examples it's based on."
    },
-   "tip": "SAT and PSAT reading questions test this exact skill: what does the evidence actually support?"
+   "tip": "SAT and PSAT reading questions test this exact skill: what does the evidence actually support?",
+   "simple": "The argument sees something happen once and decides it always happens. Ask yourself: is one day enough proof for an 'always' rule?"
   },
   {
    "id": "n6",
@@ -216,7 +303,23 @@
     ],
     "a": 1,
     "e": "Phase 3 trials test a drug in many patients, usually against the current standard. Passing one is the main evidence the FDA reviews before approving a drug."
-   }
+   },
+   "context": "Macular degeneration damages the center of the retina, the part of the eye we use for reading and recognizing faces. In the 'wet' type, leaky blood vessels grow under the retina. Current treatments work, but patients need a shot in the eye every month or two.",
+   "words": [
+    {
+     "term": "macular degeneration",
+     "means": "damage to the part of the eye used for sharp, central vision"
+    },
+    {
+     "term": "final-stage trial",
+     "means": "the last big test of a drug in patients before a company asks for approval"
+    },
+    {
+     "term": "FDA",
+     "means": "the Food and Drug Administration, the US agency that approves medicines"
+    }
+   ],
+   "simple": "Some older people slowly lose the middle of their vision, and the fix is a shot in the eye every month or two. A new drug did just as good a job in a big test, and about half the patients needed a shot only twice a year. If the government approves it, that means a lot fewer needles."
   },
   {
    "id": "s2",
@@ -236,7 +339,14 @@
     "a": 1,
     "e": "Small percentages multiplied by big amounts over many years grow large. The same math works in your favor when you save and invest early."
    },
-   "tip": "The same principle applies to car loans, student loans and credit cards. Always compare the rate, not just the monthly payment."
+   "tip": "The same principle applies to car loans, student loans and credit cards. Always compare the rate, not just the monthly payment.",
+   "simple": "Interest is the fee you pay to borrow money. A slightly bigger fee, paid every month for 30 years on a big loan, adds up to a lot of money.",
+   "words": [
+    {
+     "term": "mortgage",
+     "means": "a loan to buy a home, paid back in monthly payments over many years"
+    }
+   ]
   }
  ],
  "quiz": [

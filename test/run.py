@@ -63,6 +63,16 @@ with sync_playwright() as pw:
             slide.locator("button", has_text="Save my take").click()
             p.wait_for_selector(f"#c-{c['id']} .saved")
             p.screenshot(path=str(OUT / "deck-answered.png"))
+            slide.locator(".word").first.click()
+            p.wait_for_selector(f"#c-{c['id']} .defbox:not([hidden])")
+            slide.locator(".catchup summary").click()
+            slide.locator(".helpbtn").click()
+            p.wait_for_selector(f"#c-{c['id']} .simple")
+            slide.locator(".help textarea").fill("What is a Treasury bond?")
+            slide.locator(".help button", has_text="Ask").click()
+            p.wait_for_selector(f"#c-{c['id']} .asked")
+            p.locator(".slide").evaluate("n => n.scrollTo(0, 0)")
+            p.screenshot(path=str(OUT / "deck-help.png"), full_page=False)
         if c.get("reflect"):
             slide.locator(".reflect textarea").fill("Mostly when I'm with one friend I already know.")
             slide.locator(".reflect button", has_text="Save").click()
@@ -87,7 +97,7 @@ with sync_playwright() as pw:
     kinds = {}
     for e in ev: kinds[e["kind"]] = kinds.get(e["kind"], 0) + 1
     print("events:", kinds, "points:", sum(e.get("points", 0) for e in ev))
-    if kinds.get("read") != 10 or kinds.get("check") != sum(1 for c in FEED["cards"] if c.get("check")) or kinds.get("recall") != 3 or kinds.get("opinion") != 1 or kinds.get("bonus") != 1 or kinds.get("reflect") != 1 or kinds.get("mission") != 1:
+    if kinds.get("read") != 10 or kinds.get("check") != sum(1 for c in FEED["cards"] if c.get("check")) or kinds.get("recall") != 3 or kinds.get("opinion") != 1 or kinds.get("bonus") != 1 or kinds.get("reflect") != 1 or kinds.get("mission") != 1 or kinds.get("confused") != 1 or kinds.get("ask") != 1:
         fails.append(("events", kinds))
     if not all(e["correct"] for e in ev if e["kind"] == "recall"): fails.append(("recall should be correct", ev))
     first_check = [e for e in ev if e["kind"] == "check" and e["card_id"] == first["id"]][0]
