@@ -57,6 +57,12 @@ Levels: start at 2. Raise one step after 5+ attempts at ≥80% in that category;
 
 Use web search to find the most important news from the last ~36 hours. Gather **facts** (numbers, names, dates) plus one reliable source URL per story (prefer AP, Reuters, BBC, NPR, CNBC, official .gov or company pages). Verify every number against a source you actually opened. Never copy article wording.
 
+**Where to look.** Use these to find stories, then confirm the facts and link to the original publisher (never to the aggregator page). If a site won't open, use another reputable outlet for the same story.
+- **Tech, daily:** the Hacker News front page (https://news.ycombinator.com/news) shows what engineers are talking about. Pick items a teen can follow (AI models, big company moves, notable launches or outages) and explain the jargon; skip niche programming posts.
+- **General news:** Google News top stories (https://news.google.com/) and the wire services above.
+- **Kerala, Mon/Wed/Fri:** one Kerala or India story (search for Kerala news from The Hindu, Onmanorama, Indian Express or Mathrubhumi English). It takes one of the two flexible news slots, with `cat` `world` and `region` `Kerala` or `India`. Its `why` connects Kerala to the wider world (Gulf jobs and remittances, tourism, IT parks, monsoon and climate, the health system), and its `say` line is something he could bring up with grandparents or relatives in Kerala.
+- Don't use Reddit or other social media as a source.
+
 Prioritize: stories that continue the learner's running threads, stories people his age are actually talking about (big tech launches, sports business, games, music and entertainment business, college costs, jobs for teens, social media), and a balance of US and global. Skip graphic violence and crime. For political stories, report what happened and the main position of each side in neutral language; never editorialize.
 
 ## Step 3 — Write TODAY's brief (per learner)
@@ -82,7 +88,7 @@ Exactly **10 cards**, in this order: news, news, reasoning, news, growth, news, 
 
 **Card format** (JSON; fields marked optional may be left out):
 ```
-news:      {"id":"n1","type":"news","cat":"finance|tech|health|world","region":"US|Global","thread":"slug","title":"…","body":"…","why":"one line: why it matters to him","say":"casual line to bring it up with friends","talk":"opinion question with a real trade-off","source":{"name":"…","url":"https://…"},"check":{"q":"…","o":["…","…","…","…"],"a":0-3,"e":"why the answer is right, and why the tempting wrong one is wrong"}}
+news:      {"id":"n1","type":"news","cat":"finance|tech|health|world","region":"US|Global|Kerala|India","thread":"slug","title":"…","body":"…","why":"one line: why it matters to him","say":"casual line to bring it up with friends","talk":"opinion question with a real trade-off","source":{"name":"…","url":"https://…"},"check":{"q":"…","o":["…","…","…","…"],"a":0-3,"e":"why the answer is right, and why the tempting wrong one is wrong"}}
 reasoning: {"id":"r1","type":"reasoning","kind":"estimation|flaw|logic|pattern|triage","cat":"reasoning","title":"…","body":"…","check":{…},"tip":"optional"}
 growth:    {"id":"g1","type":"skill","kind":"conversation|jargon|street|self|interview|money|workplace|decision","cat":"skills","goal":"which of Vinu's goals this serves","title":"…","body":"…",
             "lines":["optional: things to say"],"terms":[{"term":"…","means":"…","example":"…"}] (optional),
