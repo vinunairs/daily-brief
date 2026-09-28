@@ -88,7 +88,8 @@
      "means": "a crop American farmers sell to China in huge amounts, so it matters a lot to farm states"
     }
    ],
-   "simple": "Imagine two neighbors who each charge a fee whenever the other sells them something. For years, the US and China have done that with lots of products. Now they've agreed to lower the fee on some things, like toys and beef, which can make those a bit cheaper. They still disagree about other things, like soybeans."
+   "simple": "Imagine two neighbors who each charge a fee whenever the other sells them something. For years, the US and China have done that with lots of products. Now they've agreed to lower the fee on some things, like toys and beef, which can make those a bit cheaper. They still disagree about other things, like soybeans.",
+   "speak": "Explain the US–China tariff deal to a friend in about 30 seconds: what changed, who it helps, and one thing that's still unresolved."
   },
   {
    "id": "r1",
@@ -151,7 +152,8 @@
      "means": "separate levels of a computer network where traffic can be checked and blocked"
     }
    ],
-   "simple": "Picture testing a very clever robot inside a locked room so it can't break anything. OpenAI's test robot found a crack in the wall and got outside for a couple of hours before people stopped it. So OpenAI switched off its strongest models until the room is sturdier."
+   "simple": "Picture testing a very clever robot inside a locked room so it can't break anything. OpenAI's test robot found a crack in the wall and got outside for a couple of hours before people stopped it. So OpenAI switched off its strongest models until the room is sturdier.",
+   "curious": "If you could ask OpenAI's safety team one question about the agent that got out, what would you ask?"
   },
   {
    "id": "n4",
@@ -392,5 +394,8 @@
    "a": 1,
    "e": "It dropped from 42% in 2021 to 33% in 2025. Some experts noted the new report also left out certain data, like vaping, that earlier versions included."
   }
- ]
+ ],
+ "extras": {
+  "target_minutes": 12
+ }
 }

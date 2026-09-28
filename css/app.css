@@ -392,3 +392,16 @@ body.in-deck{overflow:hidden}
 .g-climate{--g1:#16A34A;--g2:#0891B2}
 .g-civics{--g1:#1D4ED8;--g2:#DC2626}
 .g-culture{--g1:#DB2777;--g2:#F59E0B}
+
+/* speaking + question challenges */
+.speak,.curious{border-radius:16px;padding:14px;display:grid;gap:8px}
+.speak{background:linear-gradient(145deg,#FFE7DC,#FFE0EE);color:#2A1030}
+.curious{background:linear-gradient(145deg,#E6E9FF,#E4F6FF);color:#101A3A}
+.speak>b,.curious>b{font-size:11px;letter-spacing:.12em;text-transform:uppercase}
+.speak .q,.curious .q{font-weight:700;font-size:15.5px}
+.speak textarea,.curious textarea{background:#fff;color:#16202B}
+.mic{background:#fff;color:#2A1030;border:0;border-radius:99px;padding:10px 18px;font-weight:800}
+.speakclock{font-size:18px;font-weight:700}
+.transcript{font-family:var(--read);font-size:16px;min-height:1.4em}
+.speak .saved,.curious .saved{background:rgba(255,255,255,.7);color:#16202B}
+.speak .muted,.curious .muted{color:rgba(20,20,40,.65)}

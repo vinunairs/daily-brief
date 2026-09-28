@@ -10,7 +10,7 @@
   const SITE = location.origin + location.pathname;
   const TZ = "America/New_York";
   const QUIZ_UNLOCK = 6; // cards read before the recall quiz opens
-  const PTS = { readLong: 3, readShort: 1, right: 8, wrong: 2, opinion: 5, reflect: 5, recallRight: 10, recallWrong: 2, complete: 20, mission: [2, 6, 10], confused: 1, ask: 3 };
+  const PTS = { readLong: 3, readShort: 1, right: 8, wrong: 2, opinion: 5, reflect: 5, recallRight: 10, recallWrong: 2, complete: 20, mission: [2, 6, 10], confused: 1, ask: 3, speak: 6, question: 4 };
   const CAT = { basics: "Foundations", local: "Tampa Bay", science: "Science", climate: "Climate", civics: "US & Civics", culture: "Culture & Sports", finance: "Finance", tech: "Tech", health: "Health", world: "World", reasoning: "Reasoning", skills: "Life skills", social: "People skills" };
   const KIND = { estimation: "Estimate it", flaw: "Spot the flaw", logic: "Logic", pattern: "Pattern", triage: "Triage", interview: "Interview", money: "Money", workplace: "Work smarts", communication: "Communication", decision: "Decisions",
     conversation: "Conversation", jargon: "Jargon", street: "Street smarts", self: "Self-check" };
@@ -369,6 +369,8 @@
     if (c.tip) inner.append(el("div", { class: "tip" }, el("b", { text: "Tip: " }), c.tip));
     if (c.mission) inner.append(el("div", { class: "mission" }, el("b", { text: "🎯 Today's mission" }), c.mission, el("span", { class: "muted small", text: "Tomorrow's brief will ask how it went. Honest answers earn points too." })));
     if (c.reflect) inner.append(reflectView(c));
+    if (c.speak) inner.append(speakView(c));
+    if (c.curious) inner.append(curiousView(c));
     if (c.talk) inner.append(talkView(c));
     if (c.source && c.source.url) inner.append(el("div", { class: "source" }, "Source: ", el("a", { href: c.source.url, target: "_blank", rel: "noopener" }, c.source.name || "Read more"), " ↗"));
     if (has(c.id, "read")) {
@@ -421,6 +423,54 @@
     const save = el("button", { class: "btn", disabled: true, onclick: () => saveText(c, "ask", ta.value.trim(), PTS.ask) }, "Ask");
     ta.addEventListener("input", () => (save.disabled = ta.value.trim().length < 5));
     box.append(ta, el("div", { class: "actions" }, save, el("span", { class: "muted small", text: "Answered in tomorrow's brief." })));
+    return box;
+  }
+
+  // 🎤 Say it out loud: speech-to-text practice (falls back to typing where the browser can't transcribe).
+  function speakView(c) {
+    const ev = S.events.get(evKey(c.id, "speak"));
+    const box = el("div", { class: "speak" }, el("b", { text: "🎤 Say it out loud" }), el("div", { class: "q", text: c.speak }));
+    if (ev) { box.append(el("div", { class: "saved", text: ev.answer }), el("div", { class: "muted small", text: "Saved · " + Math.round((ev.ms || 0) / 1000) + " s · +" + ev.points + ". Your coach gives tips on it tomorrow." })); return box; }
+    if (S.preview) return box;
+    const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+    const out = el("div", { class: "transcript", "aria-live": "polite" });
+    const clock = el("span", { class: "num speakclock", text: "0:00" });
+    const save = el("button", { class: "btn signal", hidden: true }, "Save");
+    let t0 = 0, iv = null, text = "", rec = null;
+    const finish = () => { clearInterval(iv); iv = null; if (rec) try { rec.stop(); } catch (e) { } go.textContent = "🎙 Try again"; save.hidden = !text.trim(); };
+    const go = el("button", { class: "btn mic", onclick: () => {
+      if (iv) return finish();
+      text = ""; out.textContent = "Listening… start talking.";
+      t0 = Date.now(); iv = setInterval(() => (clock.textContent = fmt(Date.now() - t0)), 250);
+      go.textContent = "■ Stop"; save.hidden = true;
+      if (!SR) return;
+      rec = new SR(); rec.lang = "en-US"; rec.continuous = true; rec.interimResults = true;
+      rec.onresult = (e) => { let fin = "", tmp = ""; for (const r of e.results) (r.isFinal ? (fin += r[0].transcript + " ") : (tmp += r[0].transcript)); text = fin; out.textContent = (fin + tmp).trim() || "Listening…"; };
+      rec.onerror = () => { out.textContent = "The mic isn't available here. Type what you said instead."; ta.hidden = false; };
+      rec.onend = () => { if (iv) finish(); };
+      try { rec.start(); } catch (e) { rec.onerror(); }
+    } }, "🎙 Start talking");
+    const ta = el("textarea", { hidden: !!SR, placeholder: "Say it out loud first, then type roughly what you said.", maxlength: "800", "aria-label": "What you said" });
+    ta.addEventListener("input", () => { text = ta.value; save.hidden = text.trim().length < 15; });
+    save.addEventListener("click", async () => {
+      const ms = t0 ? Math.min(Date.now() - t0, 600000) : 0;
+      if (await record({ card_id: c.id, kind: "speak", answer: text.trim().slice(0, 800), ms: Math.round(ms), points: PTS.speak })) { gain(PTS.speak, "Nice delivery"); paintLearner(true); }
+    });
+    box.append(el("div", { class: "actions" }, go, clock), out, ta, save,
+      el("div", { class: "muted small", text: "Aim for about 30 seconds: what happened, why it matters, what you think." }));
+    return box;
+  }
+
+  // ❓ Question challenge: practice asking sharp questions. Good ones get answered in tomorrow's brief.
+  function curiousView(c) {
+    const ev = S.events.get(evKey(c.id, "question"));
+    const box = el("div", { class: "curious" }, el("b", { text: "❓ Question challenge" }), el("div", { class: "q", text: c.curious }));
+    if (ev) { box.append(el("div", { class: "saved", text: ev.answer }), el("div", { class: "muted small", text: "Saved · +" + ev.points + ". The best questions get answered tomorrow." })); return box; }
+    if (S.preview) return box;
+    const ta = el("textarea", { placeholder: "Your question. Make it one you really want answered. (+" + PTS.question + ")", maxlength: "300", "aria-label": "Your question" });
+    const save = el("button", { class: "btn", disabled: true, onclick: () => saveText(c, "question", ta.value.trim(), PTS.question) }, "Save my question");
+    ta.addEventListener("input", () => (save.disabled = ta.value.trim().length < 10));
+    box.append(ta, el("div", { class: "actions" }, save, el("span", { class: "muted small", text: "Open questions (why, how, what if) score best." })));
     return box;
   }
 
@@ -723,6 +773,8 @@
         if (c.talk) box.append(el("div", { class: "aq", text: "💬 " + c.talk }), op ? el("div", { class: "his text" }, el("q", { text: op.answer }), el("span", { class: "muted small", text: op.score != null ? " · reasoning " + op.score + "/3" : " · not scored yet" })) : el("div", { class: "his none", text: "No take written" }));
         const rf = ev[c.id + ":reflect"];
         if (c.reflect) box.append(el("div", { class: "aq", text: "🪞 " + c.reflect }), rf ? el("div", { class: "his text" }, el("q", { text: rf.answer })) : el("div", { class: "his none", text: "No reflection written" }));
+        if (c.speak) box.append(el("div", { class: "aq", text: "🎤 " + c.speak }), ev[c.id + ":speak"] ? el("div", { class: "his text" }, el("q", { text: ev[c.id + ":speak"].answer }), el("span", { class: "muted small", text: " · " + Math.round((ev[c.id + ":speak"].ms || 0) / 1000) + " s" + (ev[c.id + ":speak"].score != null ? " · " + ev[c.id + ":speak"].score + "/3" : "") })) : el("div", { class: "his none", text: "Didn't do the speaking challenge" }));
+        if (c.curious) box.append(el("div", { class: "aq", text: "❓ " + c.curious }), ev[c.id + ":question"] ? el("div", { class: "his text" }, el("q", { text: ev[c.id + ":question"].answer }), el("span", { class: "muted small", text: ev[c.id + ":question"].score != null ? " · " + ev[c.id + ":question"].score + "/3" : "" })) : el("div", { class: "his none", text: "No question written" }));
         if (ev[c.id + ":confused"]) box.append(el("div", { class: "his wrong", text: "🤔 Tapped \"I don't get it\"" }));
         if (ev[c.id + ":ask"]) box.append(el("div", { class: "his text" }, el("span", { class: "muted small", text: "His question: " }), el("q", { text: ev[c.id + ":ask"].answer })));
         if (c.mission) box.append(el("div", { class: "muted small", text: "🎯 Mission: " + c.mission }));

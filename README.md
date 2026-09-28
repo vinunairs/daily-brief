@@ -14,6 +14,16 @@ Ten minutes a day: five short news summaries (finance, tech, health, world; US a
 2. **Notification** — `supabase/functions/brief-push`, run hourly by `pg_cron` (`brief-push-hourly`, minute 5). Sends one notification at the learner's chosen hour once the brief exists, and skips it if they've already finished.
 3. **The app** — sign in with the Test Prep Hub account. The home screen shows today's progress ring, streak, level and XP, the coach's note and today's lineup. Tap Start to go through the brief as full-screen story cards (swipe or tap to move on), with instant points, level-ups and a celebration at the end. The recall quiz unlocks after 6 cards. The brief always ends after 10 cards; there's no endless feed.
 
+## What it's really for
+
+The news is the vehicle. The core aims are **street smarts, enquiry skills (asking good questions), speaking skills, and confidence in group conversation**. Every day's brief includes:
+- **🎤 Say it out loud:** explain one story in about 30 seconds. The phone transcribes it (speech-to-text) and the morning job scores it on point, reason and conciseness, with tips the next day. Where the browser can't transcribe, he types what he said.
+- **❓ Question challenge:** write the one question he'd ask someone involved in a story, scored on being open, specific and probing. The best ones are answered the next day.
+- **A conversation card with a real-world mission**, weighted toward group situations.
+- **Street smarts** at least 4 days a week.
+
+Before writing a card or grading an answer, the morning job does background reading beyond the article and uses established methods: the Question Formulation Technique and Socratic questioning, PREP for speaking, active listening for group conversation, and FTC/FBI scam guidance for street smarts. The parent report includes a line on each of the four aims every day.
+
 ## Topics, time and checks
 
 - **Topics:** news rotates across about ten areas (money and the economy, tech, health, science and space, climate, world affairs, US government and civics, culture and sports business, Tampa Bay, Kerala/India), each at least twice a week. Tampa Bay stories appear 3–4 days a week and whenever there's big local news.
@@ -48,6 +58,7 @@ Rookie (0) → Reader (150) → Informed (400) → Sharp (800) → Insider (1,40
 | Mission check-in: did it / partly / not yet | 10 / 6 / 2 |
 | Recall quiz right / wrong | 10 / 2 |
 | "I don't get it" / asking a question | 1 / 3 |
+| Say it out loud / question challenge | 6 / 4, plus up to 9 bonus each for a strong one |
 | Finish all 10 cards | 20 |
 
 A day counts toward the streak when 6+ cards are read. Answer choices are shuffled per question so the right answer isn't always in the same position.
