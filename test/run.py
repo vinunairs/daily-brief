@@ -5,6 +5,15 @@ from playwright.sync_api import sync_playwright
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 FEED = json.loads((ROOT / "docs/feeds/2026-09-28.json").read_text())
+# Swap the two skill cards for growth cards and add a mission check-in, to exercise the newer card types.
+FEED["cards"][5] = {"id": "s1", "type": "skill", "kind": "conversation", "cat": "skills", "title": "Joining a group conversation",
+  "body": "Walking up to a group that's already talking is hard for most people.", "lines": ["Wait, are you talking about the game last night?", "What did I miss?"],
+  "mission": "Join one group conversation today with a question.", "reflect": "When do you feel most comfortable talking to new people?"}
+FEED["cards"][9] = {"id": "s2", "type": "skill", "kind": "jargon", "cat": "skills", "title": "Money words you'll hear",
+  "body": "Three terms from this week's news.", "terms": [{"term": "Yield", "means": "The return you earn on a bond.", "example": "The 10-year yield hit 5.2%."}],
+  "check": {"q": "A bond's yield is...", "o": ["its return", "its color", "its owner", "its age"], "a": 0, "e": "Yield is the return."}}
+FEED["cards"][0]["say"] = "Did you see gas might go up again?"
+FEED["extras"] = {"mission_checkin": {"text": "Ask a teacher one question after class.", "ref": "2026-09-27"}}
 STUB = (ROOT / "test/supabase-stub.js").read_text()
 OUT = pathlib.Path(sys.argv[1]) if len(sys.argv) > 1 else ROOT / "test/out"
 OUT.mkdir(parents=True, exist_ok=True)
@@ -57,6 +66,15 @@ with sync_playwright() as pw:
         card.locator("button.btn.signal, button.btn.ghost.block").first.click()
         p.wait_for_selector(f"#c-{c['id']}.done")
     p.wait_for_selector("#quiz .card")
+    # growth card reflection (s1 is already read; reopen it)
+    p.locator("#c-s1 .head").click()
+    p.locator("#c-s1 .reflect textarea").fill("Mostly when I'm with one friend I already know.")
+    p.locator("#c-s1 .reflect button", has_text="Save").click()
+    p.wait_for_selector("#c-s1 .reflect .saved")
+    p.screenshot(path=str(OUT / "learner-growth.png"))
+    # mission check-in
+    p.locator(".checkin button", has_text="Did it").click()
+    p.wait_for_selector(".checkin .small")
     for q in FEED["quiz"]:
         p.locator("#quiz .card", has_text=q["q"][:40]).locator(".opt", has_text=q["o"][q["a"]]).click()
     p.wait_for_selector(".finish")
@@ -65,7 +83,7 @@ with sync_playwright() as pw:
     kinds = {}
     for e in ev: kinds[e["kind"]] = kinds.get(e["kind"], 0) + 1
     print("events:", kinds, "points:", sum(e.get("points", 0) for e in ev))
-    if kinds.get("read") != 10 or kinds.get("check") != 10 or kinds.get("recall") != 3 or kinds.get("opinion") != 1 or kinds.get("bonus") != 1:
+    if kinds.get("read") != 10 or kinds.get("check") != sum(1 for c in FEED["cards"] if c.get("check")) or kinds.get("recall") != 3 or kinds.get("opinion") != 1 or kinds.get("bonus") != 1 or kinds.get("reflect") != 1 or kinds.get("mission") != 1:
         fails.append(("events", kinds))
     if not all(e["correct"] for e in ev if e["kind"] == "recall"): fails.append(("recall should be correct", ev))
     first_check = [e for e in ev if e["kind"] == "check" and e["card_id"] == first["id"]][0]
@@ -76,6 +94,12 @@ with sync_playwright() as pw:
     p, errs = page_for(b, "parent", dark=True)
     p.wait_for_selector(".kid")
     p.screenshot(path=str(OUT / "parent.png"), full_page=True)
+    p.locator(".goalsbox summary").click()
+    p.locator(".addgoal input").fill("Handling disagreements calmly")
+    p.locator(".addgoal button").click()
+    p.locator(".goalsbox button", has_text="Save goals").click()
+    p.wait_for_function("window.__GOALS && window.__GOALS.p_goals.length === 3")
+    p.screenshot(path=str(OUT / "parent-goals.png"), full_page=True)
     p.locator("button", has_text="Preview").click()
     p.wait_for_selector(".preview-banner")
     p.screenshot(path=str(OUT / "parent-preview.png"))

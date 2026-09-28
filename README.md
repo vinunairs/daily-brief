@@ -1,6 +1,6 @@
 # Daily Brief
 
-Ten minutes a day: six short news summaries (finance, tech, health; US and global), two reasoning workouts and two life-skill cards, plus a recall quiz on earlier stories. Built for Rishabh; designed so more learners (with different age bands) can be added later.
+Ten minutes a day: five short news summaries (finance, tech, health, world; US and global), two reasoning workouts and three growth cards built around the parent's goals (conversation practice, jargon and street smarts, self-check, interview, money and work skills), plus a recall quiz on earlier stories. Built for Rishabh; designed so more learners (with different age bands) can be added later.
 
 **Live site:** https://vinunairs.github.io/daily-brief/
 
@@ -14,6 +14,15 @@ Ten minutes a day: six short news summaries (finance, tech, health; US and globa
 2. **Notification** — `supabase/functions/brief-push`, run hourly by `pg_cron` (`brief-push-hourly`, minute 5). Sends one notification at the learner's chosen hour once the brief exists, and skips it if they've already finished.
 3. **The app** — sign in with the Test Prep Hub account. Read a card, answer the quick check, optionally write a take, tap Done. The recall quiz unlocks after 6 cards.
 
+## Growth goals
+
+Each learner has a list of goals set by the parent (Parent view → Growth goals). The morning job builds every brief around them: each goal gets at least two cards a week, and newly added goals get extra attention.
+
+- **Conversation cards** give natural lines to try and a small real-world **mission**. The next day's brief asks how it went (did it / partly / not yet), and honest answers earn points either way.
+- **Jargon** and **street smarts** cards alternate: business, tech, workplace and everyday terms; scams, pressure, fine print.
+- **Self-check** cards include a private reflection. The parent view shows only how many were written, never what they say; the morning job uses them only to pick what to practice next.
+- Every news card has a **"bring it up with friends"** line.
+
 ## Points
 
 | Action | Points |
@@ -21,6 +30,8 @@ Ten minutes a day: six short news summaries (finance, tech, health; US and globa
 | Read a card (12+ seconds) | 3 (1 if faster) |
 | Quick check right / wrong | 8 / 2 |
 | Write "your take" | 5, plus up to 9 bonus next morning for strong reasoning |
+| Private reflection | 5 |
+| Mission check-in: did it / partly / not yet | 10 / 6 / 2 |
 | Recall quiz right / wrong | 10 / 2 |
 | Finish all 10 cards | 20 |
 
@@ -32,14 +43,14 @@ All tables are prefixed `brief_` and don't touch Test Prep Hub's data.
 
 | Table | What | Who can read |
 |---|---|---|
-| `brief_learners` | who's enrolled, age band, learner profile | functions only |
+| `brief_learners` | who's enrolled, age band, growth goals, learner profile | functions only |
 | `brief_feeds` | one brief per learner per day | the learner |
 | `brief_events` | reads, checks, takes, recall, bonuses | the learner (insert own) |
 | `brief_coach_notes` | daily note for the learner | the learner |
 | `brief_reports` | daily evaluation for the parent | admin only |
 | `brief_push_subscriptions` | notification devices | the learner |
 
-Functions: `brief_me()`, `brief_stats()`, `brief_admin_overview()` and `brief_admin_feed()` (admin only), `brief_streak_for()` (server only).
+Functions: `brief_me()`, `brief_stats()`, `brief_admin_overview()`, `brief_admin_feed()` and `brief_admin_set_goals()` (admin only), `brief_streak_for()` (server only).
 
 **Add a learner** (e.g. a younger child): they need a Test Prep Hub account, then
 ```sql
@@ -50,7 +61,7 @@ The morning job picks them up the next day.
 
 ## Parent view
 
-Sign in with the admin account to see each learner's streak, points, 14-day activity, latest evaluation, accuracy by category, profile trends and recent "your take" answers, and to preview their brief.
+Sign in with the admin account to edit each learner's growth goals and see their streak, points, 14-day activity, latest evaluation, accuracy by category, profile trends and recent "your take" answers, missions tried, and to preview their brief.
 
 ## iPhone notifications
 

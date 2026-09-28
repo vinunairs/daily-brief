@@ -7,6 +7,7 @@
   --health:#B8434A; --health-soft:#F6E0E1;
   --reasoning:#6B4BB0; --reasoning-soft:#E9E2F6;
   --skills:#A4660E; --skills-soft:#F6E9D2;
+  --social:#1D7C86; --social-soft:#DAF0F1;
   --shadow:0 1px 0 rgba(22,32,43,.05),0 8px 20px -14px rgba(22,32,43,.35);
   --display:"Archivo",system-ui,-apple-system,"Segoe UI",sans-serif;
   --read:"Source Serif 4",Georgia,"Times New Roman",serif;
@@ -23,6 +24,7 @@
   --health:#EC8A90; --health-soft:#3A1F23;
   --reasoning:#AE92EC; --reasoning-soft:#2A2143;
   --skills:#E3AA55; --skills-soft:#3A2C16;
+  --social:#5CC6CF; --social-soft:#16343A;
   --shadow:0 1px 0 rgba(0,0,0,.3),0 10px 24px -14px rgba(0,0,0,.7);
 }}
 *{box-sizing:border-box}
@@ -82,6 +84,29 @@ a{color:inherit}
 .card .tag.health{background:var(--health-soft);color:var(--health)}
 .card .tag.reasoning{background:var(--reasoning-soft);color:var(--reasoning)}
 .card .tag.skills{background:var(--skills-soft);color:var(--skills)}
+.card .tag.social{background:var(--social-soft);color:var(--social)}
+.card .tag.world{background:var(--sunk);color:var(--ink)}
+.terms{margin:0;display:grid;gap:10px}
+.terms dt{font-weight:800;font-size:16px}
+.terms dd{margin:2px 0 0;font-size:15px;line-height:1.45}
+.terms .ex{display:block;color:var(--graphite);font-style:italic;font-family:var(--read);margin-top:2px}
+.lines,.say,.mission{border-radius:12px;padding:10px 12px;font-size:15px;display:grid;gap:4px}
+.lines{background:var(--social-soft)}
+.lines b,.say b{font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--social)}
+.lines ul{margin:0;padding-left:18px;display:grid;gap:4px;font-family:var(--read);font-size:16px}
+.say{background:var(--social-soft);font-family:var(--read);font-size:16px}
+.say b{font-family:var(--display)}
+.mission{background:var(--signal-soft)}
+.mission b{color:var(--signal)}
+.reflect .q::before{content:"🔒 "}
+.checkin{background:var(--surface);border:1.5px dashed var(--signal);border-radius:16px;padding:14px 16px;display:grid;gap:8px;margin-top:14px}
+.checkin .q{font-family:var(--read);font-size:16px}
+.goalsbox{border-top:1px solid var(--line);padding-top:10px;display:grid;gap:8px}
+.goals{margin:8px 0;padding-left:20px;display:grid;gap:6px;font-size:14.5px}
+.goals li span{margin-right:8px}
+.goals .linkbtn{font-size:13px}
+.addgoal{display:flex;gap:8px}
+.addgoal input{flex:1;min-width:0;border:1.5px solid var(--line);border-radius:10px;padding:10px 12px;background:var(--surface);font-size:16px;color:var(--ink)}
 .card .meta{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
 .card .region{font-size:12px;color:var(--graphite);font-weight:600}
 .card h2{font-size:20px;font-weight:750;font-stretch:85%;grid-column:1/-1;margin-top:6px}
