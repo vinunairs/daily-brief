@@ -202,6 +202,7 @@
   function paintLearner(keepScroll) {
     document.body.classList.toggle("in-deck", S.view === "deck");
     if (S.view === "deck" && S.feed) return paintDeck(keepScroll);
+    if (S.view === "review" && S.feed) return paintReview();
     paintHome();
   }
 
@@ -213,6 +214,41 @@
       <circle cx="40" cy="40" r="${r}" fill="none" stroke="var(--ring-track)" stroke-width="8"/>
       <circle cx="40" cy="40" r="${r}" fill="none" stroke="url(#rg)" stroke-width="8" stroke-linecap="round" stroke-dasharray="${c}" stroke-dashoffset="${c * (1 - p)}" transform="rotate(-90 40 40)" class="ring-fill"/>`;
     return s;
+  }
+
+  // ---- Home checklist helpers ----
+  function itemDone(x) { return x.t === "card" ? has(x.c.id, "read") : x.t === "fun" ? has(x.f.id, "fun") : x.t === "game" ? has("game", "game") : x.t === "quiz" ? (S.feed.quiz || []).every((q) => has(q.id, "recall")) : true; }
+  function briefProgress() {
+    const items = deckItems().filter((x) => x.t !== "finish"), doneN = items.filter(itemDone).length, k = deckItems().findIndex((x) => x.t !== "finish" && !itemDone(x));
+    const cards = S.feed.cards.length, fx = S.feed.extras || {}, nb = Array.isArray(fx.bonus) ? fx.bonus.length : 0, g = fx.game && fx.game.items && fx.game.items.length;
+    const left = S.feed.cards.filter((c) => !has(c.id, "read")).length;
+    const sub = (left ? left + " of " + cards + " cards to go" : cards + " cards read") + (nb ? " · " + nb + " bonus rounds" : "") + (g ? " · 🎮 game" : "") + ((S.feed.quiz || []).length ? " · quiz" : "") + " · ⏱ " + Math.round(targetMs() / 60000) + " min";
+    return { total: items.length, doneN, done: allDone(), next: k < 0 || allDone() ? (k < 0 ? 0 : k) : k, sub };
+  }
+  function reviewState() {
+    const fx = S.feed.extras || {}, fb = Array.isArray(fx.feedback) ? fx.feedback : [], m = fx.mission_checkin && fx.mission_checkin.text;
+    const has_ = fb.length || m || (Array.isArray(fx.answers) && fx.answers.length) || (fx.week && (fx.week.win || fx.week.focus));
+    const total = fb.length + (m ? 1 : 0), doneN = fb.filter((f, i) => has(fbId(f, i), "feedback")).length + (m && has("mission", "mission") ? 1 : 0);
+    let seen = false; try { seen = localStorage.getItem("brief-review-seen-" + S.feed.feed_date) === "1"; } catch (e) { }
+    const fixes = fb.reduce((t, f) => t + ((f.fixes || []).length), 0);
+    const parts = []; if (fb.length) parts.push(fb.length + " feedback note" + (fb.length > 1 ? "s" : "")); if (fixes) parts.push(fixes + " fact fix" + (fixes > 1 ? "es" : "")); if (Array.isArray(fx.answers) && fx.answers.length) parts.push("answers to your questions"); if (m) parts.push("mission check-in"); if (fx.week && fx.week.win) parts.push("week in review");
+    return { has: !!has_, total, doneN, done: total ? doneN === total : seen, sub: parts.join(" · ") + " · ~2 min" };
+  }
+  function stepRow(done, ico, title, sub, pct, onclick) {
+    return el("button", { class: "step" + (done ? " done" : ""), onclick },
+      el("span", { class: "num" }), el("span", { class: "sbody" }, el("span", { class: "st" }, ico + " " + title), el("span", { class: "ss", text: sub }),
+        el("span", { class: "sbar" }, el("i", { style: "width:" + Math.round(100 * (pct || 0)) + "%" }))), el("span", { class: "arr", text: "→" }));
+  }
+  function openDeckAt(k) { S.view = "deck"; S.painted = null; S.idx = Math.max(0, Math.min(k, deckItems().length - 1)); paintLearner(); window.scrollTo(0, 0); }
+  function openReview() { S.view = "review"; try { localStorage.setItem("brief-review-seen-" + S.feed.feed_date, "1"); } catch (e) { } paintLearner(); window.scrollTo(0, 0); }
+  function paintReview() {
+    const back = () => { S.view = "home"; paintLearner(); window.scrollTo(0, 0); };
+    const rv = reviewState(), bp = briefProgress();
+    const nodes = [el("div", { class: "revtop" }, el("button", { class: "btn ghost", onclick: back }, "← Home"), el("b", { text: "📝 Review yesterday" }), el("span", { class: "muted small", text: rv.total ? rv.doneN + "/" + rv.total : "" })),
+      S.note && S.note.note ? el("div", { class: "coach2" }, el("div", { class: "av", text: "🧭" }), el("div", {}, el("b", { text: "Coach" }), el("p", { text: S.note.note }))) : null,
+      weekView(), feedbackView(), answersView(), missionView(),
+      el("button", { class: "cta", onclick: () => openDeckAt(bp.next) }, el("span", { text: bp.done ? "Look back at today's brief" : "Next: today's brief" }), el("span", { class: "arr", text: "→" }))];
+    $app.replaceChildren(...nodes.filter((x) => x != null));
   }
 
   function paintHome() {
@@ -229,57 +265,35 @@
       return $app.replaceChildren(...nodes.filter((x) => x != null));
     }
     const n = readCount(), total = S.feed.cards.length;
-    const started = n > 0, done = allDone();
-    const nextIdx = Math.max(0, S.feed.cards.findIndex((c) => !has(c.id, "read")));
-    const ctaText = done ? "Review today's brief" : started ? (n >= total ? "Finish the recall quiz" : "Continue · card " + (nextIdx + 1) + " of " + total) : "Start today's brief";
-    const ctaIdx = done ? 0 : n >= total ? total : nextIdx;
-    nodes.push(el("section", { class: "hero2" },
+    const bp = briefProgress(), rv = reviewState();
+    nodes.push(el("section", { class: "hero2 slim" },
       el("div", { class: "date", text: prettyDate(today) }),
       el("h1", { text: greeting() + (name ? ", " + name : "") }),
-      el("div", { class: "hud" },
-        el("div", { class: "ringbox" }, ring(n, total), el("div", { class: "ringtxt" }, el("b", { text: n }), el("span", { text: "of " + total }))),
-        el("div", { class: "hudstats" },
-          el("div", { class: "flame" + (S.stats.streak > 0 ? " lit" : "") }, el("span", { class: "fl", text: "🔥" }), el("b", { text: S.stats.streak || 0 }), el("span", { text: "day streak" })),
-          el("div", { class: "lvl" }, el("div", { class: "lvlrow" }, el("span", { class: "badge", text: "Lv " + lv.n }), el("b", { text: lv.name }), el("span", { class: "pts-pill", id: "ptsPill", text: (S.stats.today || 0) + " pts today" })),
-            el("div", { class: "xp" }, el("i", { style: "width:" + lv.pct + "%" })),
-            el("span", { class: "muted small", text: lv.next ? lv.toNext + " pts to " + lv.next : "Top level!" })))),
-      el("button", { class: "cta", onclick: () => openDeck(S.preview ? 0 : ctaIdx) }, el("span", { text: S.preview ? "Open the brief" : ctaText }), el("span", { class: "arr", text: "→" })),
-      el("div", { class: "cta-sub muted small", text: done ? "All done for today. Nice work." : "⏱ " + Math.round(targetMs() / 60000) + "-min brief · " + (total - n) + " cards left" + (usedMs() > 30000 ? " · " + fmt(usedMs()) + " used" : "") })));
+      el("div", { class: "hudline" },
+        el("span", { class: "flame" + (S.stats.streak > 0 ? " lit" : "") }, el("span", { class: "fl", text: "🔥" }), el("b", { text: S.stats.streak || 0 }), " day streak"),
+        el("span", { class: "badge", text: "Lv " + lv.n + " · " + lv.name }),
+        el("span", { class: "pts-pill", id: "ptsPill", text: (S.stats.today || 0) + " pts today" })),
+      el("div", { class: "xp" }, el("i", { style: "width:" + lv.pct + "%" })),
+      el("span", { class: "muted small", text: lv.next ? lv.toNext + " pts to " + lv.next : "Top level!" })));
     if (S.feed.feed_date !== today && !S.preview) nodes.push(el("div", { class: "stale", text: "Today's brief isn't ready yet, so here's the latest one (" + prettyDate(S.feed.feed_date, { weekday: "short", month: "short" }) + ")." }));
-    if (S.note && S.note.note) nodes.push(el("div", { class: "coach2" }, el("div", { class: "av", text: "🧭" }), el("div", {}, el("b", { text: "Coach" }), el("p", { text: S.note.note }))));
-    nodes.push(weekView());
-    nodes.push(feedbackView());
-    nodes.push(answersView());
-    nodes.push(missionView());
-    nodes.push(el("div", { class: "section-h" }, el("h3", { text: "Today's lineup" }), el("span", { class: "muted small", text: n + "/" + total + " read" })));
-    nodes.push(el("div", { class: "tiles" }, S.feed.cards.map((c, i) => {
-      const read = has(c.id, "read");
-      return el("button", { class: "tile g-" + catOf(c) + (read ? " read" : ""), onclick: () => openDeck(i) },
-        el("span", { class: "te", text: emojiOf(c) }), el("span", { class: "tk", text: (c.type === "news" || c.type === "basics") ? CAT[catOf(c)] : KIND[c.kind] || CAT[catOf(c)] }),
-        el("span", { class: "tt", text: c.title }), read ? el("span", { class: "tick", text: "✓" }) : null,
-        (S.events.get(evKey(c.id, "like")) || {}).choice > 0 ? el("span", { class: "heart", text: "💖" }) : null);
-    })));
-    const qz = S.feed.quiz || [];
-    if (qz.length) {
-      const unlocked = n >= Math.min(QUIZ_UNLOCK, total) || S.preview;
-      const qd = qz.filter((q) => has(q.id, "recall")).length;
-      nodes.push(el("button", { class: "tile wide g-quiz" + (unlocked ? "" : " locked"), onclick: () => (unlocked ? openDeck(total) : toast("Read " + QUIZ_UNLOCK + " cards to unlock")) },
-        el("span", { class: "te", text: unlocked ? "🏆" : "🔒" }), el("span", { class: "tk", text: "Recall quiz · +" + PTS.recallRight + " each" }),
-        el("span", { class: "tt", text: unlocked ? qd + " of " + qz.length + " answered" : "Unlocks after " + QUIZ_UNLOCK + " cards" })));
-    }
-    const fx = S.feed.extras || {}, bon = Array.isArray(fx.bonus) ? fx.bonus : [], gm = fx.game && Array.isArray(fx.game.items) && fx.game.items.length ? fx.game : null;
-    if (bon.length || gm) {
-      const at = (pred) => () => { const items = deckItems(), k = items.findIndex(pred); S.view = "deck"; S.painted = null; S.idx = Math.max(0, k); paintLearner(); window.scrollTo(0, 0); };
-      const bdone = bon.filter((f) => has(f.id, "fun")).length, next = bon.find((f) => !has(f.id, "fun")) || bon[0];
-      nodes.push(el("div", { class: "tiles two" },
-        gm ? el("button", { class: "tile g-game" + (has("game", "game") ? " read" : ""), onclick: at((x) => x.t === "game") },
-          el("span", { class: "te", text: (GAMES[gm.type] || ["🎮"])[0] }), el("span", { class: "tk", text: "Game · 60 s" }), el("span", { class: "tt", text: (GAMES[gm.type] || [0, "Mini-game"])[1] }), has("game", "game") ? el("span", { class: "tick", text: "✓" }) : null) : null,
-        bon.length ? el("button", { class: "tile g-fun" + (bdone === bon.length ? " read" : ""), onclick: at((x) => x.t === "fun" && x.f === next) },
-          el("span", { class: "te", text: "🎁" }), el("span", { class: "tk", text: "Bonus rounds" }), el("span", { class: "tt", text: bdone + " of " + bon.length + " · " + [...new Set(bon.map((f) => f.topic).filter(Boolean))].slice(0, 3).join(", ") }), bdone === bon.length ? el("span", { class: "tick", text: "✓" }) : null) : null));
-    }
+    const steps = [];
+    if (rv.has) steps.push(stepRow(rv.done, "📝", "Review yesterday", rv.done ? "All caught up · tap to look again" : rv.sub, rv.total ? rv.doneN / rv.total : 0, () => openReview()));
+    else if (S.note && S.note.note) nodes.push(el("div", { class: "coach2" }, el("div", { class: "av", text: "🧭" }), el("div", {}, el("b", { text: "Coach" }), el("p", { text: S.note.note }))));
+    steps.push(stepRow(bp.done, "📰", S.preview ? "Open the brief" : bp.done ? "Today's brief: done!" : bp.doneN ? "Continue today's brief" : "Today's brief",
+      bp.done ? "Nice work · tap to look back" : bp.sub, bp.total ? bp.doneN / bp.total : 0, () => openDeckAt(S.preview ? 0 : bp.next)));
+    nodes.push(el("section", { class: "steps" }, el("div", { class: "eyebrow", text: "Today's checklist" }), steps.map((x, i) => (x.querySelector(".num").textContent = x.classList.contains("done") ? "✓" : String(i + 1), x))));
     const days = (S.stats.days || []).slice(-7);
     if (days.length) nodes.push(el("div", { class: "week" }, el("div", { class: "eyebrow", text: "Your week" }), el("div", { class: "wk" }, days.map((d) => el("div", { class: "wd" + (d.read >= 6 ? " on" : d.pts ? " some" : "") + (d.d === today ? " today" : "") },
       el("i", {}), el("span", { text: new Date(d.d + "T12:00:00Z").toLocaleDateString("en-US", { weekday: "narrow", timeZone: "UTC" }) }))))));
+    const lineup = el("details", { class: "lineup" }, el("summary", {}, "See today's cards (" + n + "/" + total + " read)"),
+      el("div", { class: "tiles" }, S.feed.cards.map((c, i) => {
+        const read = has(c.id, "read");
+        return el("button", { class: "tile g-" + catOf(c) + (read ? " read" : ""), onclick: () => openDeck(i) },
+          el("span", { class: "te", text: emojiOf(c) }), el("span", { class: "tk", text: (c.type === "news" || c.type === "basics") ? CAT[catOf(c)] : KIND[c.kind] || CAT[catOf(c)] }),
+          el("span", { class: "tt", text: c.title }), read ? el("span", { class: "tick", text: "✓" }) : null,
+          (S.events.get(evKey(c.id, "like")) || {}).choice > 0 ? el("span", { class: "heart", text: "💖" }) : null);
+      })));
+    nodes.push(lineup);
     if (S.preview) nodes.unshift(el("div", { class: "preview-banner" }, el("span", { text: "Preview of " + S.preview.name + "'s brief for " + prettyDate(S.feed.feed_date, { weekday: "short", month: "short" }) + ". Nothing is recorded." }), el("button", { class: "btn ghost", onclick: () => { S.preview = null; S.me.learner = null; route(); } }, "Back")));
     $app.replaceChildren(...nodes.filter((x) => x != null));
   }

@@ -517,3 +517,31 @@ input[type=number]{border:1.5px solid var(--line);border-radius:10px;padding:10p
 .gover h3{font-size:40px;margin:0}
 @media (prefers-reduced-motion:reduce){.stage.ok,.stage.no,.mb.miss{animation:none}}
 .tiles.two{grid-template-columns:1fr 1fr;margin-top:10px}
+
+/* Home: slim hero + two-step checklist */
+.hero2.slim{padding-bottom:18px}
+.hero2.slim h1{margin-bottom:10px}
+.hudline{display:flex;flex-wrap:wrap;align-items:center;gap:8px 12px;margin-bottom:10px;font-size:14px}
+.hudline .flame{display:inline-flex;align-items:center;gap:4px}
+.hero2.slim .xp{margin-bottom:4px}
+.steps{display:grid;gap:10px;margin:14px 0}
+.steps .eyebrow{font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--graphite)}
+.step{display:grid;grid-template-columns:44px 1fr 20px;gap:12px;align-items:center;text-align:left;width:100%;padding:16px;border-radius:20px;cursor:pointer;font:inherit;color:inherit;
+  background:linear-gradient(var(--surface),var(--surface)) padding-box,var(--grad-cta) border-box;border:2px solid transparent;box-shadow:0 6px 20px -12px rgba(255,46,131,.5)}
+.step .num{width:44px;height:44px;border-radius:50%;display:grid;place-items:center;font-weight:800;font-size:20px;color:#fff;background:var(--grad-cta)}
+.step .sbody{display:grid;gap:4px;min-width:0}
+.step .st{font-family:var(--display);font-weight:800;font-size:19px}
+.step .ss{font-size:13.5px;color:var(--graphite)}
+.step .sbar{height:6px;border-radius:99px;background:var(--line);overflow:hidden;margin-top:4px}
+.step .sbar i{display:block;height:100%;background:var(--grad-cta);border-radius:99px}
+.step .arr{font-size:20px;color:var(--signal)}
+.step.done{background:var(--surface);border:2px solid var(--good-soft);box-shadow:none}
+.step.done .num{background:var(--good)}
+.step.done .sbar i{background:var(--good)}
+.step.done .arr{color:var(--graphite)}
+.lineup{margin:14px 0}
+.lineup summary{cursor:pointer;color:var(--graphite);font-size:14px;padding:8px 0}
+.lineup .tiles{margin-top:8px}
+.revtop{display:flex;align-items:center;gap:10px;margin:8px 0 12px}
+.revtop b{flex:1;font-size:18px}
+.hero2.slim .muted{color:rgba(255,255,255,.75)}

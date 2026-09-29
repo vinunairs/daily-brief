@@ -55,14 +55,19 @@ with sync_playwright() as pw:
 
     # learner flow: home -> deck through all cards -> quiz -> finish -> home mission check-in
     p, errs = page_for(b, "learner")
-    p.wait_for_selector(".cta")
+    p.wait_for_selector(".steps .step")
+    p.screenshot(path=str(OUT / "home.png"), full_page=True)
+    if p.locator(".steps .step").count() != 2: fails.append(("two steps", p.locator(".steps .step").count()))
+    p.locator(".step", has_text="Review yesterday").click()
     p.wait_for_selector(".fb .fbi[open] .fix")
     if not p.locator(".wkrev").count(): fails.append(("week review", 0))
     p.locator(".fb").screenshot(path=str(OUT / "home-feedback.png"))
     p.locator(".fb .fbi").first.locator("button", has_text="Got it").click()
     p.wait_for_selector(".fb .fbi.done")
-    p.screenshot(path=str(OUT / "home.png"), full_page=True)
-    p.locator(".cta").click()
+    p.screenshot(path=str(OUT / "review.png"), full_page=True)
+    p.locator(".revtop button", has_text="Home").click()
+    p.wait_for_selector(".steps")
+    p.locator(".step", has_text="brief").click()
     p.wait_for_selector(".slide .shead")
     p.wait_for_timeout(400); p.screenshot(path=str(OUT / "deck-card.png"))
     # Done is blocked until the check is answered
@@ -139,9 +144,17 @@ with sync_playwright() as pw:
     p.wait_for_timeout(300)
     p.screenshot(path=str(OUT / "deck-finish.png"))
     p.locator(".deck-bar .grow", has_text="Back to home").click()
+    p.wait_for_selector(".step.done")
+    p.locator(".step", has_text="Review yesterday").click()
     p.wait_for_selector(".checkin")
     p.locator(".checkin button", has_text="Did it").click()
     p.wait_for_selector(".checkin .small")
+    while p.locator(".fbi:not(.done)").count():
+        it = p.locator(".fbi:not(.done)").first
+        if not it.get_attribute("open") is not None: it.locator("summary").click()
+        it.locator("button", has_text="Got it").click(); p.wait_for_timeout(300)
+    p.locator(".revtop button", has_text="Home").click(); p.wait_for_selector(".steps")
+    if p.locator(".step.done").count() != 2: fails.append(("both steps done", p.locator(".step.done").count()))
     p.screenshot(path=str(OUT / "home-done.png"), full_page=True)
     ev = p.evaluate("window.__EVENTS")
     import json as _j
@@ -152,7 +165,7 @@ with sync_playwright() as pw:
     kinds = {}
     for e in ev: kinds[e["kind"]] = kinds.get(e["kind"], 0) + 1
     print("events:", kinds, "points:", sum(e.get("points", 0) for e in ev))
-    if kinds.get("read") != 10 or kinds.get("check") != sum(1 for c in FEED["cards"] if c.get("check")) or kinds.get("recall") != 3 or kinds.get("opinion") != 1 or kinds.get("bonus") != 1 or kinds.get("reflect") != 1 or kinds.get("mission") != 1 or kinds.get("confused") != 1 or kinds.get("ask") != 1 or kinds.get("question") != 1 or kinds.get("like") != 1 or kinds.get("feedback") != 1 or kinds.get("fun") != 2 or kinds.get("game") != 1:
+    if kinds.get("read") != 10 or kinds.get("check") != sum(1 for c in FEED["cards"] if c.get("check")) or kinds.get("recall") != 3 or kinds.get("opinion") != 1 or kinds.get("bonus") != 1 or kinds.get("reflect") != 1 or kinds.get("mission") != 1 or kinds.get("confused") != 1 or kinds.get("ask") != 1 or kinds.get("question") != 1 or kinds.get("like") != 1 or kinds.get("feedback") != 2 or kinds.get("fun") != 2 or kinds.get("game") != 1:
         fails.append(("events", kinds))
     if not all(e["correct"] for e in ev if e["kind"] == "recall"): fails.append(("recall should be correct", ev))
     g = [e for e in ev if e["kind"] == "game"]
@@ -170,7 +183,7 @@ with sync_playwright() as pw:
         body=f"window.__MODE='learner';window.__FEED={json.dumps(FEED)};" + STUB))
     p.clock.install()
     p.goto("http://127.0.0.1:8765/index.html")
-    p.wait_for_selector(".cta"); p.locator(".cta").click(); p.wait_for_selector(".slide .shead")
+    p.wait_for_selector(".steps"); p.locator(".step", has_text="brief").click(); p.wait_for_selector(".slide .shead")
     p.clock.run_for(80000)
     p.wait_for_selector(".pausebox.nudge")
     p.wait_for_timeout(700); p.screenshot(path=str(OUT / "nudge.png"))
@@ -195,7 +208,7 @@ with sync_playwright() as pw:
         p.route("**/fonts.googleapis.com/**", lambda r: r.abort())
         body = f"window.__MODE='learner';window.__FEED={json.dumps(f2)};" + STUB
         p.route("**/js/vendor/supabase-*.js", (lambda body: (lambda r: r.fulfill(status=200, content_type="application/javascript", body=body)))(body))
-        p.goto("http://127.0.0.1:8765/index.html", wait_until="domcontentloaded"); p.wait_for_selector(".cta"); p.locator(".cta").click()
+        p.goto("http://127.0.0.1:8765/index.html", wait_until="domcontentloaded"); p.wait_for_selector(".steps"); p.locator(".step", has_text="brief").click()
         p.wait_for_selector(".slide .shead"); p.locator(".slide .opt").first.click(); p.locator(".deck-bar .grow").click()
         p.wait_for_selector("#game-slide"); p.locator("#game-slide button", has_text="Start").click()
         if gt == "match":
@@ -244,7 +257,7 @@ with sync_playwright() as pw:
     p.wait_for_selector(".kid")
     p.locator("button", has_text="Preview").click()
     p.wait_for_selector(".preview-banner")
-    p.locator(".cta").click()
+    p.locator(".step", has_text="brief").click()
     p.wait_for_selector(".slide .shead")
     p.screenshot(path=str(OUT / "parent-preview.png"))
     if "Done" in p.locator(".deck-bar .grow").inner_text(): fails.append(("preview shows Done button", 1))

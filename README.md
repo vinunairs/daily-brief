@@ -12,7 +12,7 @@ Ten minutes a day: five short news summaries (finance, tech, health, world; US a
    - writes a parent report (a note on every answer, what his answers show about his knowledge, and a 1–2 week plan forward that the following briefs carry out) and a short coach note;
    - researches the news and writes today's 10-card brief, tuned to the profile (70% balanced core, up to 30% interest-driven) and the learner's age band.
 2. **Notification** — `supabase/functions/brief-push`, run hourly by `pg_cron` (`brief-push-hourly`, minute 5). Sends one notification at the learner's chosen hour once the brief exists, and skips it if they've already finished.
-3. **The app** — sign in with the Test Prep Hub account. The home screen shows today's progress ring, streak, level and XP, the coach's note and today's lineup. Tap Start to go through the brief as full-screen story cards (swipe or tap to move on), with instant points, level-ups and a celebration at the end. The recall quiz unlocks after 6 cards. The brief always ends after 10 cards; there's no endless feed.
+3. **The app** — sign in with the Test Prep Hub account. The home screen is a two-step checklist: **1. Review yesterday** (coach note, feedback and fact fixes, answers to their questions, mission check-in, Sunday week review) and **2. Today's brief** (story-style cards with bonus rounds, the daily game and the recall quiz). Each step shows progress and turns green with a ✓ when done; today's cards are folded under "See today's cards".
 
 ## What it's really for
 
