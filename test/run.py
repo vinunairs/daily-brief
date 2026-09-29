@@ -19,6 +19,10 @@ FEED["extras"] = {"mission_checkin": {"text": "Ask a teacher one question after 
     "good": "You led with your answer and backed it with a reason.", "fixes": [{"said": "gas is 10 dollars now", "actually": "The US average was about $3.20 a gallon last week.", "source": {"name": "AAA", "url": "https://gasprices.aaa.com/"}}],
     "next": "Add one 'but' sentence.", "better": "Yes, because higher fuel costs hit families first, but reopening it too fast could raise the risk to ships."},
    {"ref": "2026-09-27", "card_id": "n3", "kind": "question", "title": "Your question to the AI lab", "answer": "Is AI dangerous?", "score": 1, "good": "You picked a big question.", "next": "Make it open and specific."}],
+  "bonus": [{"id": "f1", "after": FEED["cards"][0]["id"], "kind": "trivia", "topic": "Pokémon", "q": "Which type is strong against Water?", "o": ["Fire", "Grass", "Rock", "Ground"], "a": 1, "e": "Grass beats Water."},
+            {"id": "f2", "after": "s1", "kind": "joke", "topic": "Drumming", "setup": "Why did the drummer bring a ladder?", "punch": "To reach the high hats."},
+            {"id": "f3", "after": FEED["cards"][7]["id"], "kind": "fact", "topic": "Orchestral music", "text": "Some video-game soundtracks are recorded by full orchestras."}],
+  "game": {"type": "realfake", "after": FEED["cards"][3]["id"], "items": [{"text": "Starship reaches orbit", "real": True, "e": "Happened Sept 28."}, {"text": "Florida bans flip-flops", "real": False, "e": "Made up."}, {"text": "US and China cut some tariffs", "real": True, "e": "Real."}]},
   "week": {"win": "Your quick-check accuracy on money stories went from 50% to 80%.", "focus": "Give a reason in every take.", "facts": ["A tariff is a tax on imports, paid by the importer."]}}
 STUB = (ROOT / "test/supabase-stub.js").read_text()
 OUT = pathlib.Path(sys.argv[1]) if len(sys.argv) > 1 else ROOT / "test/out"
@@ -68,7 +72,26 @@ with sync_playwright() as pw:
     p.screenshot(path=str(OUT / "paused.png"))
     p.locator(".pausebox button", has_text="Resume").click()
     first = FEED["cards"][0]
+    def extras_slides():
+        for _ in range(3):
+            p.wait_for_timeout(150)
+            if p.locator("#f-f1").count():
+                p.locator("#f-f1 .opt", has_text="Grass").click(); p.wait_for_selector("#f-f1 .opt.right")
+                p.screenshot(path=str(OUT / "fun-trivia.png")); p.locator(".deck-bar .grow").click()
+            elif p.locator("#f-f2").count():
+                p.locator("#f-f2 .reveal").click(); p.locator("#f-f2 button", has_text="Ha").click(); p.wait_for_selector("#f-f2 .punch")
+                p.screenshot(path=str(OUT / "fun-joke.png")); p.locator(".deck-bar .grow").click()
+            elif p.locator("#f-f3").count():
+                p.locator(".deck-bar .grow").click()  # skip one
+            elif p.locator("#game-slide").count():
+                p.locator("#game-slide button", has_text="Start").click()
+                for want in ["Real", "Fake", "Fake"]:
+                    p.wait_for_selector("#game-slide .gcard"); p.locator("#game-slide .gbtns button", has_text=want).click(); p.wait_for_timeout(1700)
+                p.wait_for_selector("#game-slide .gover"); p.screenshot(path=str(OUT / "game-over.png"))
+                p.wait_for_timeout(1800); p.locator(".deck-bar .grow").click()
+            else: return
     for i, c in enumerate(FEED["cards"]):
+        extras_slides()
         p.wait_for_selector(f"#c-{c['id']}")
         slide = p.locator(f"#c-{c['id']}")
         if c.get("check"):
@@ -105,6 +128,7 @@ with sync_playwright() as pw:
             p.wait_for_selector(f"#c-{c['id']} .reflect .saved")
             p.screenshot(path=str(OUT / "deck-growth.png"))
         p.locator(".deck-bar .grow").click()
+    extras_slides()
     p.wait_for_selector("#quiz")
     for q in FEED["quiz"]:
         p.locator("#quiz .check", has_text=q["q"][:40]).locator(".opt", has_text=q["o"][q["a"]]).click()
@@ -128,9 +152,11 @@ with sync_playwright() as pw:
     kinds = {}
     for e in ev: kinds[e["kind"]] = kinds.get(e["kind"], 0) + 1
     print("events:", kinds, "points:", sum(e.get("points", 0) for e in ev))
-    if kinds.get("read") != 10 or kinds.get("check") != sum(1 for c in FEED["cards"] if c.get("check")) or kinds.get("recall") != 3 or kinds.get("opinion") != 1 or kinds.get("bonus") != 1 or kinds.get("reflect") != 1 or kinds.get("mission") != 1 or kinds.get("confused") != 1 or kinds.get("ask") != 1 or kinds.get("question") != 1 or kinds.get("like") != 1 or kinds.get("feedback") != 1:
+    if kinds.get("read") != 10 or kinds.get("check") != sum(1 for c in FEED["cards"] if c.get("check")) or kinds.get("recall") != 3 or kinds.get("opinion") != 1 or kinds.get("bonus") != 1 or kinds.get("reflect") != 1 or kinds.get("mission") != 1 or kinds.get("confused") != 1 or kinds.get("ask") != 1 or kinds.get("question") != 1 or kinds.get("like") != 1 or kinds.get("feedback") != 1 or kinds.get("fun") != 2 or kinds.get("game") != 1:
         fails.append(("events", kinds))
     if not all(e["correct"] for e in ev if e["kind"] == "recall"): fails.append(("recall should be correct", ev))
+    g = [e for e in ev if e["kind"] == "game"]
+    if g and _j.loads(g[0]["answer"])["score"] != 2: fails.append(("game score", g))
     first_check = [e for e in ev if e["kind"] == "check" and e["card_id"] == first["id"]][0]
     if not first_check["correct"] or first_check["choice"] != first["check"]["a"]: fails.append(("first check mapping", first_check))
     if errs: fails.append(("learner", errs))
@@ -154,6 +180,37 @@ with sync_playwright() as pw:
     if not any('"nudge"' in (e.get("answer") or "") and e.get("ms") == 0 for e in nev): fails.append(("nudge event", nev))
     if nerrs: fails.append(("nudge", nerrs))
     ctx.close()
+
+    # other game types, each on its own
+    GAMEFX = {
+      "match": {"type": "match", "after": FEED["cards"][0]["id"], "items": [{"term": "Tariff", "means": "A tax on imports"}, {"term": "Orbit", "means": "A path around a planet"}, {"term": "Yield", "means": "The return on a bond"}]},
+      "higherlower": {"type": "higherlower", "after": FEED["cards"][0]["id"], "items": [{"a": {"label": "Countries in the UN", "value": 193}, "b": {"label": "Pokémon in the first games", "value": 151}, "e": "193 vs 151."}]},
+      "emoji": {"type": "emoji", "after": FEED["cards"][0]["id"], "items": [{"emoji": "🚀🌍🔄", "o": ["Starship reaches orbit", "Tariffs cut", "New park"], "a": 0, "e": "Rocket around Earth."}]}}
+    import copy
+    for gt, gfx in GAMEFX.items():
+        f2 = copy.deepcopy(FEED); f2["extras"] = {"game": gfx}
+        ctx = b.new_context(viewport={"width": 390, "height": 844}, device_scale_factor=2)
+        p = ctx.new_page(); gerrs = []
+        p.on("pageerror", lambda e: gerrs.append(str(e)))
+        p.route("**/fonts.googleapis.com/**", lambda r: r.abort())
+        body = f"window.__MODE='learner';window.__FEED={json.dumps(f2)};" + STUB
+        p.route("**/js/vendor/supabase-*.js", (lambda body: (lambda r: r.fulfill(status=200, content_type="application/javascript", body=body)))(body))
+        p.goto("http://127.0.0.1:8765/index.html", wait_until="domcontentloaded"); p.wait_for_selector(".cta"); p.locator(".cta").click()
+        p.wait_for_selector(".slide .shead"); p.locator(".slide .opt").first.click(); p.locator(".deck-bar .grow").click()
+        p.wait_for_selector("#game-slide"); p.locator("#game-slide button", has_text="Start").click()
+        if gt == "match":
+            for it in gfx["items"]:
+                p.locator("#game-slide .mb", has_text=it["term"]).click(); p.locator("#game-slide .mb", has_text=it["means"]).click()
+            p.screenshot(path=str(OUT / "game-match.png"))
+        elif gt == "higherlower":
+            p.wait_for_selector(".hl"); p.screenshot(path=str(OUT / "game-hl.png")); p.locator(".hl", has_text="Countries").click()
+        else:
+            p.wait_for_selector(".emo"); p.screenshot(path=str(OUT / "game-emoji.png")); p.locator(".gopts button", has_text="Starship").click()
+        p.wait_for_selector("#game-slide .gover", timeout=8000)
+        gev = [e for e in p.evaluate("window.__EVENTS") if e["kind"] == "game"]
+        if not gev or json.loads(gev[0]["answer"])["score"] != len(gfx["items"]): fails.append(("game " + gt, gev))
+        if gerrs: fails.append(("game " + gt, gerrs))
+        ctx.close()
 
     # parent view + preview, dark mode
     p, errs = page_for(b, "parent", dark=True)

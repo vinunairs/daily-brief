@@ -36,6 +36,13 @@ Every card has **👍 More like this / 👎 Not for me** (he can change his mind
 - **Focus nudges:** if there's no touch, scroll or key press for 75 seconds on a card, the clock stops at the last activity and a "Still with me?" popup asks him to refocus (or take a proper break). The wording gets firmer on repeat drift-offs. Each nudge is recorded with how long he drifted and on which card; the Parent view counts them, and the morning job uses them to tell a confusing card (drifting on one card) from general distraction (drifting everywhere).
 - **Checks are required:** he has to answer a card's quick check before moving on, so every card gives a signal of whether he understood it.
 
+## Built for each person
+
+- **Calibration:** each learner has their own setup (`profile.calib`): number of cards (6–14), article length, how many written answers, and a time target. The morning job starts from Vinu's instructions (Rishabh: 8 cards, short 55–75-word articles, a written answer on every news card; Prayaga: 10 cards and room to grow to 14) and steps one thing up or down at a time, at most every 2–3 days, from their accuracy, time, written scores and focus. The Parent view shows the current setup and why.
+- **🎁 Bonus rounds:** 2–3 short breaks between cards drawn from each person's interests (trivia, surprising facts, jokes for the younger ones, this-or-that). Fact-checked, text only.
+- **🎮 Daily mini-game (60 seconds):** rotates between Real or fake? (spot the made-up headline), Higher or lower (numbers from the news and their interests), Word match (today's words) and Emoji decode (which story?). First play each day earns points; replays are for fun.
+- The morning job reads its instructions from `docs/daily-job.md` in this repo each run, so a push updates it.
+
 ## Feedback to the learner
 
 - **Instantly:** quick checks and the recall quiz show right/wrong with an explanation. While typing a take or a question, or after recording a spoken answer, a checklist ticks off structure (point up front, a reason, the other side; open, specific, digs deeper; length and fillers) with a hint for anything missing, so he can improve it before saving.

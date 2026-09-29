@@ -10,7 +10,7 @@
   const SITE = location.origin + location.pathname;
   const TZ = "America/New_York";
   const QUIZ_UNLOCK = 6; // cards read before the recall quiz opens
-  const PTS = { readLong: 3, readShort: 1, right: 8, wrong: 2, opinion: 5, reflect: 5, recallRight: 10, recallWrong: 2, complete: 20, mission: [2, 6, 10], confused: 1, ask: 3, speak: 6, question: 4, feedback: 2 };
+  const PTS = { readLong: 3, readShort: 1, right: 8, wrong: 2, opinion: 5, reflect: 5, recallRight: 10, recallWrong: 2, complete: 20, mission: [2, 6, 10], confused: 1, ask: 3, speak: 6, question: 4, feedback: 2, funRight: 5, funTry: 1, gameEach: 2, gameDone: 5 };
   const CAT = { basics: "Foundations", local: "Tampa Bay", science: "Science", climate: "Climate", civics: "US & Civics", culture: "Culture & Sports", finance: "Finance", tech: "Tech", health: "Health", world: "World", reasoning: "Reasoning", skills: "Life skills", social: "People skills" };
   const KIND = { estimation: "Estimate it", flaw: "Spot the flaw", logic: "Logic", pattern: "Pattern", triage: "Triage", interview: "Interview", money: "Money", workplace: "Work smarts", communication: "Communication", decision: "Decisions",
     conversation: "Conversation", jargon: "Jargon", street: "Street smarts", self: "Self-check" };
@@ -180,7 +180,23 @@
   }
   function catOf(c) { return c.type === "basics" ? "basics" : c.type === "news" ? (CAT[c.cat] ? c.cat : "world") : c.type === "reasoning" ? "reasoning" : SOCIAL.has(c.kind) ? "social" : "skills"; }
   function emojiOf(c) { return c.type === "news" ? EMOJI[c.region] || EMOJI[c.cat] || "📰" : EMOJI[c.kind] || "✨"; }
-  const deckItems = () => [...S.feed.cards.map((c) => ({ t: "card", c })), ...(S.feed.quiz && S.feed.quiz.length ? [{ t: "quiz" }] : []), { t: "finish" }];
+  // Cards in order, with interest bonus rounds (extras.bonus[].after = card id) and the daily mini-game (extras.game.after) slotted in.
+  function deckItems() {
+    const x = S.feed.extras || {}, cards = S.feed.cards, last = cards.length ? cards[cards.length - 1].id : null;
+    const fun = Array.isArray(x.bonus) ? x.bonus.filter((f) => f && f.id) : [];
+    const game = x.game && Array.isArray(x.game.items) && x.game.items.length ? x.game : null;
+    const gameAfter = game ? (cards.some((c) => c.id === game.after) ? game.after : cards[Math.max(0, Math.floor(cards.length / 2) - 1)].id) : null;
+    const out = [];
+    cards.forEach((c, i) => {
+      out.push({ t: "card", c, n: i + 1 });
+      if (c.id === last) return;
+      for (const f of fun) if (f.after === c.id) out.push({ t: "fun", f });
+      if (game && gameAfter === c.id) out.push({ t: "game", g: game });
+    });
+    if (S.feed.quiz && S.feed.quiz.length) out.push({ t: "quiz" });
+    out.push({ t: "finish" });
+    return out;
+  }
   const allDone = () => readCount() >= S.feed.cards.length && (S.feed.quiz || []).every((q) => has(q.id, "recall"));
 
   function paintLearner(keepScroll) {
@@ -259,7 +275,10 @@
   }
 
   function openDeck(i) {
-    S.view = "deck"; S.painted = null; S.idx = Math.max(0, Math.min(i, deckItems().length - 1));
+    const items = deckItems(), cards = S.feed.cards;
+    let at = i >= cards.length ? items.findIndex((x) => x.t === "quiz") : items.findIndex((x) => x.t === "card" && x.c === cards[i]);
+    if (at < 0) at = items.length - 1;
+    S.view = "deck"; S.painted = null; S.idx = Math.max(0, Math.min(at, items.length - 1));
     paintLearner(); window.scrollTo(0, 0);
   }
   function closeDeck() { timerStop("close"); S.view = "home"; paintLearner(); window.scrollTo(0, 0); }
@@ -269,15 +288,17 @@
     const items = deckItems(), it = items[S.idx], total = S.feed.cards.length;
     const prevSlide = document.querySelector(".slide");
     if (keepScroll && prevSlide) slideScroll = prevSlide.scrollTop;
-    const segs = el("div", { class: "segs" }, items.filter((x) => x.t !== "finish").map((x, i) => el("i", { class: (i === S.idx ? "cur " : "") + ((x.t === "card" && has(x.c.id, "read")) || (x.t === "quiz" && (S.feed.quiz || []).every((q) => has(q.id, "recall"))) ? "done" : "") })));
+    const segs = el("div", { class: "segs" }, items.filter((x) => x.t !== "finish").map((x, i) => el("i", { class: (i === S.idx ? "cur " : "") + (x.t === "fun" || x.t === "game" ? "mini " : "") + ((x.t === "card" && has(x.c.id, "read")) || (x.t === "fun" && has(x.f.id, "fun")) || (x.t === "game" && has("game", "game")) || (x.t === "quiz" && (S.feed.quiz || []).every((q) => has(q.id, "recall"))) ? "done" : "") })));
     const top = el("div", { class: "deck-top" }, segs, el("div", { class: "deck-row" },
       el("button", { class: "iconbtn ghosty", "aria-label": "Close", onclick: closeDeck }, "✕"),
-      el("span", { class: "pos", text: it.t === "card" ? S.idx + 1 + " / " + total : it.t === "quiz" ? "Recall quiz" : "Done" }),
+      el("span", { class: "pos", text: it.t === "card" ? it.n + " / " + total : it.t === "quiz" ? "Recall quiz" : it.t === "fun" ? "Bonus round" : it.t === "game" ? "Game time" : "Done" }),
       it.t !== "finish" && !S.preview ? el("button", { class: "timer", id: "timerPill", "aria-label": "Pause timer", onclick: () => timerPause(true) }, el("span", { class: "tt" }), el("span", { class: "pz", text: "❚❚" })) : null,
       el("span", { class: "pts-pill", id: "ptsPill", text: "⚡ " + (S.stats.today || 0) })));
     let slide;
     if (it.t === "card") slide = cardSlide(it.c);
     else if (it.t === "quiz") slide = quizSlide();
+    else if (it.t === "fun") slide = funSlide(it.f);
+    else if (it.t === "game") slide = gameSlide(it.g);
     else slide = finishSlide();
     const bar = el("div", { class: "deck-bar" });
     bar.append(el("button", { class: "nav", "aria-label": "Previous", disabled: S.idx === 0, onclick: () => go(-1) }, "‹"));
@@ -288,6 +309,9 @@
       else bar.append(el("button", { class: "btn grow needcheck", onclick: nudgeCheck }, "Answer the quick check to continue ↑"));
     } else if (it.t === "quiz") {
       bar.append(el("button", { class: "btn signal grow", onclick: () => go(1) }, "Finish →"));
+    } else if (it.t === "fun" || it.t === "game") {
+      const fin = it.t === "fun" ? has(it.f.id, "fun") : has("game", "game");
+      bar.append(el("button", { class: "btn grow" + (fin || S.preview ? " signal" : " ghost"), onclick: () => go(1) }, fin || S.preview ? "Next →" : "Skip →"));
     } else bar.append(el("button", { class: "btn signal grow", onclick: closeDeck }, "Back to home"));
     if (S.painted === S.idx) slide.classList.remove("from-left", "from-right");
     S.painted = S.idx;
@@ -739,11 +763,108 @@
     if (!(await record({ card_id: c.id, kind: "read", ms, points: pts }))) return;
     const n = readCount(), total = S.feed.cards.length;
     if (n === total && !has("_complete", "bonus")) {
-      if (await record({ card_id: "_complete", kind: "bonus", points: PTS.complete })) gain(pts + PTS.complete, "All 10 read!");
+      if (await record({ card_id: "_complete", kind: "bonus", points: PTS.complete })) gain(pts + PTS.complete, "All " + total + " read!");
     } else gain(pts, n === QUIZ_UNLOCK ? "Quiz unlocked 🔓" : "");
     if (n === QUIZ_UNLOCK || n === total) { const { data } = await sb.rpc("brief_stats"); if (data) S.stats = data; }
     S.idx = Math.min(S.idx + 1, deckItems().length - 1); S.dir = 1;
     paintLearner();
+  }
+
+  /* ---------- 🎁 Bonus rounds (interest trivia, facts, jokes, this-or-that) ---------- */
+  const FUNKIND = { trivia: ["🧠", "Trivia"], fact: ["🤯", "Did you know?"], joke: ["😂", "Joke break"], thisorthat: ["⚖️", "This or that?"] };
+  function funSlide(f) {
+    const [ico, label] = FUNKIND[f.kind] || ["🎁", "Bonus"];
+    const ev = S.events.get(evKey(f.id, "fun"));
+    const head = el("header", { class: "shead g-fun" }, el("div", { class: "meta" }, el("span", { class: "chip", text: "Bonus round" }), f.topic ? el("span", { class: "chip ghost", text: f.topic }) : null),
+      el("div", { class: "big", text: ico }), el("h2", { text: label }));
+    const inner = el("div", { class: "inner fun" });
+    const save = async (row, pts, msg) => { if (S.preview || has(f.id, "fun")) return; if (await record(Object.assign({ card_id: f.id, kind: "fun", points: pts }, row))) { gain(pts, msg); paintLearner(true); } };
+    if (f.kind === "trivia" && Array.isArray(f.o)) {
+      const box = el("div", { class: "check" }, el("div", { class: "q", text: f.q }));
+      const letter = choices(box, S.feed.feed_date + f.id, f.o, f.a, ev, (i) => save({ correct: i === f.a, choice: i }, i === f.a ? PTS.funRight : PTS.funTry, i === f.a ? "Nailed it!" : ""));
+      if (ev || S.preview) box.append(el("div", { class: "explain" }, el("b", { text: S.preview ? "Answer: " + letter + ". " : ev.correct ? "You know your stuff! " : "Now you know! " }), f.e || ""));
+      inner.append(box);
+    } else if (f.kind === "joke") {
+      inner.append(el("p", { class: "setup", text: f.setup || f.q || "" }));
+      const punch = el("p", { class: "punch", text: f.punch || "", hidden: !ev && !S.preview });
+      inner.append(punch);
+      if (!ev && !S.preview) inner.append(el("button", { class: "btn signal block reveal", onclick: (e) => { punch.hidden = false; e.target.replaceWith(rateRow()); } }, "Tell me! 👀"));
+      else inner.append(el("div", { class: "muted small", text: ev ? (ev.choice ? "😂 Good one" : "😐 Groan") : "" }));
+      function rateRow() { return el("div", { class: "actions center" }, el("button", { class: "btn", onclick: () => save({ choice: 1 }, PTS.funTry, "😂") }, "😂 Ha!"), el("button", { class: "btn ghost", onclick: () => save({ choice: 0 }, PTS.funTry, "") }, "😐 Groan")); }
+    } else if (f.kind === "thisorthat" && Array.isArray(f.o)) {
+      inner.append(el("div", { class: "q", text: f.q || "Which would you pick?" }));
+      inner.append(el("div", { class: "tot" }, f.o.slice(0, 2).map((o, i) => el("button", { class: "totb" + (ev && ev.choice === i ? " on" : ""), disabled: !!ev || S.preview, onclick: () => save({ choice: i, answer: o.slice(0, 200) }, PTS.funTry, "Good pick!") }, o))));
+      if (ev && f.e) inner.append(el("div", { class: "explain", text: f.e }));
+    } else {
+      inner.append(el("p", { class: "factt", text: f.text || f.q || "" }));
+      if (f.e) inner.append(el("p", { class: "muted small", text: f.e }));
+      inner.append(ev ? el("div", { class: "muted small", text: ev.choice ? "🤯 Mind blown" : "😎 Knew it" }) : S.preview ? "" :
+        el("div", { class: "actions center" }, el("button", { class: "btn", onclick: () => save({ choice: 1 }, PTS.funTry, "🤯") }, "🤯 No way!"), el("button", { class: "btn ghost", onclick: () => save({ choice: 0 }, PTS.funTry, "😎") }, "😎 Knew it")));
+    }
+    return el("article", { class: "slide" + (S.dir < 0 ? " from-left" : " from-right"), id: "f-" + f.id }, head, inner);
+  }
+
+  /* ---------- 🎮 Daily mini-game: real or fake, higher or lower, word match, emoji decode (60 seconds) ---------- */
+  const GAMES = { realfake: ["🕵️", "Real or fake?", "Is each headline real news, or made up? Trust your street smarts."], higherlower: ["📈", "Higher or lower", "Tap the one with the bigger number."], match: ["🔗", "Word match", "Match each word to what it means."], emoji: ["🧩", "Emoji decode", "Which story do the emojis describe?"] };
+  const GAME_MS = 60000;
+  function gameSlide(g) {
+    const [ico, title, how] = GAMES[g.type] || ["🎮", g.title || "Mini-game", ""];
+    const ev = S.events.get(evKey("game", "game"));
+    const head = el("header", { class: "shead g-game" }, el("div", { class: "meta" }, el("span", { class: "chip", text: "Game time" }), el("span", { class: "chip ghost", text: "60 seconds" })),
+      el("div", { class: "big", text: ico }), el("h2", { text: g.title || title }), el("p", { class: "sub", text: how }));
+    const inner = el("div", { class: "inner game" });
+    const items = g.type === "match" ? g.items.slice(0, 6) : g.items.slice(0, 10);
+    let best = null; try { best = ev && JSON.parse(ev.answer || "{}"); } catch (e) { }
+    const startBtn = el("button", { class: "btn signal block big", onclick: () => play() }, ev ? "Play again (just for fun)" : "Start ▶");
+    inner.append(ev ? el("div", { class: "gres" }, el("b", { text: "Your score: " + (best && best.score != null ? best.score + " / " + best.total : ev.choice) }), el("span", { class: "muted small", text: " +" + ev.points + " points" })) : "", S.preview ? el("div", { class: "muted small", text: items.length + " rounds" }) : startBtn);
+    function play() {
+      const t0 = Date.now(); let score = 0, i = 0, over = false;
+      const bar = el("div", { class: "gbar" }, el("i")), sc = el("span", { class: "gsc num", text: "0" }), stage = el("div", { class: "stage" });
+      inner.replaceChildren(el("div", { class: "ghud" }, bar, sc), stage);
+      const tick = setInterval(() => { const left = GAME_MS - (Date.now() - t0); bar.firstChild.style.width = Math.max(0, (100 * left) / GAME_MS) + "%"; if (left <= 0) end(); }, 200);
+      const hit = (ok, note, next) => { if (over) return; if (ok) { score++; sc.textContent = score; } stage.classList.remove("ok", "no"); void stage.offsetWidth; stage.classList.add(ok ? "ok" : "no");
+        if (note) { stage.append(el("div", { class: "gnote", text: (ok ? "✓ " : "✗ ") + note })); setTimeout(next, ok ? 700 : 1500); } else setTimeout(next, 250); };
+      const nextRound = () => { if (over) return; if (i >= items.length) return end(); renderRound(items[i++]); };
+      function renderRound(x) {
+        stage.replaceChildren();
+        if (g.type === "realfake") {
+          stage.append(el("div", { class: "gcard", text: "“" + x.text + "”" }), el("div", { class: "gbtns" },
+            el("button", { class: "btn", onclick: () => hit(x.real === true, (x.real ? "Real. " : "Made up. ") + (x.e || ""), nextRound) }, "📰 Real"),
+            el("button", { class: "btn", onclick: () => hit(x.real === false, (x.real ? "Real. " : "Made up. ") + (x.e || ""), nextRound) }, "🧢 Fake")));
+        } else if (g.type === "higherlower") {
+          const side = (o, other) => el("button", { class: "hl", onclick: () => hit(Number(o.value) >= Number(other.value), fmtHL(x.a) + " vs " + fmtHL(x.b) + (x.e ? ". " + x.e : ""), nextRound) }, el("b", { text: o.label }));
+          stage.append(el("div", { class: "q", text: x.q || "Which is bigger?" }), el("div", { class: "hlrow" }, side(x.a, x.b), el("span", { class: "vs", text: "vs" }), side(x.b, x.a)));
+        } else if (g.type === "emoji") {
+          stage.append(el("div", { class: "emo", text: x.emoji }), el("div", { class: "gopts" }, (x.o || []).map((o, k) => el("button", { class: "btn", onclick: () => hit(k === x.a, x.e || "", nextRound) }, o))));
+        }
+      }
+      function fmtHL(o) { return o.label + ": " + (o.shown || Number(o.value).toLocaleString("en-US")) + (o.unit ? " " + o.unit : ""); }
+      function matchRound() {
+        const terms = items.map((x, k) => ({ k, t: x.term })), means = order(items.length, S.feed.feed_date + "match").map((k) => ({ k, t: items[k].means }));
+        let pick = null, done = 0;
+        const L = el("div", { class: "mcol" }), R = el("div", { class: "mcol" });
+        const mk = (col, arr, side) => arr.forEach((x) => col.append(el("button", { class: "mb", "data-k": x.k, onclick: (e) => choose(side, x.k, e.currentTarget) }, x.t)));
+        function choose(side, k, b) {
+          if (b.classList.contains("gone")) return;
+          if (!pick || pick.side === side) { stage.querySelectorAll(".mb.sel").forEach((n) => n.classList.remove("sel")); pick = { side, k, b }; b.classList.add("sel"); return; }
+          if (pick.k === k) { score++; done++; sc.textContent = score; pick.b.classList.add("gone"); b.classList.add("gone"); pick = null; if (done === items.length) setTimeout(end, 400); }
+          else { const a = pick.b; pick = null; a.classList.remove("sel"); [a, b].forEach((n) => { n.classList.add("miss"); setTimeout(() => n.classList.remove("miss"), 500); }); }
+        }
+        mk(L, terms, "L"); mk(R, means, "R");
+        stage.append(el("div", { class: "mgrid" }, L, R));
+      }
+      async function end() {
+        if (over) return; over = true; clearInterval(tick);
+        const total = items.length, pts = Math.min(40, score * PTS.gameEach + (score === total ? PTS.gameDone : 0));
+        const first = !has("game", "game") && !S.preview;
+        inner.replaceChildren(el("div", { class: "gover" }, el("div", { class: "big", text: score === total ? "🏆" : score >= total / 2 ? "🔥" : "💪" }),
+          el("h3", { text: score + " / " + total }), el("p", { class: "muted", text: score === total ? "Perfect round!" : score >= total / 2 ? "Nice work!" : "Good warm-up. Tomorrow's another round." }),
+          first ? "" : el("p", { class: "muted small", text: "Practice round: points count on your first game each day." })));
+        if (first && await record({ card_id: "game", kind: "game", choice: score, points: pts, ms: Math.min(GAME_MS, Date.now() - t0), answer: JSON.stringify({ type: g.type, score, total }) })) { gain(pts, score === total ? "Perfect!" : "Game over"); if (score === total) confetti(); setTimeout(() => paintLearner(true), 1600); }
+      }
+      if (g.type === "match") matchRound(); else nextRound();
+    }
+    return el("article", { class: "slide" + (S.dir < 0 ? " from-left" : " from-right"), id: "game-slide" }, head, inner);
   }
 
   function quizSlide() {
@@ -908,7 +1029,9 @@
         pr.strengths && pr.strengths.length ? el("div", {}, el("div", { class: "eyebrow", text: "Showing strength in" }), pills(pr.strengths, "good")) : null,
         pr.gaps && pr.gaps.length ? el("div", {}, el("div", { class: "eyebrow", text: "Building up" }), pills(pr.gaps, "warn")) : null,
         pr.interests && pr.interests.length ? el("div", {}, el("div", { class: "eyebrow", text: "Drawn to" }), pills(pr.interests)) : null,
-        pr.direction ? el("p", { class: "small", style: "margin:0" }, el("b", { text: "Trend: " }), pr.direction) : null));
+        pr.direction ? el("p", { class: "small", style: "margin:0" }, el("b", { text: "Trend: " }), pr.direction) : null,
+        pr.calib ? el("p", { class: "small", style: "margin:0" }, el("b", { text: "Current setup: " }),
+          [pr.calib.cards ? pr.calib.cards + " cards" : "", pr.calib.news_words ? "~" + [].concat(pr.calib.news_words).join("–") + "-word articles" : "", pr.calib.written != null ? pr.calib.written + " written answers" : "", pr.calib.target_minutes ? pr.calib.target_minutes + " min target" : ""].filter(Boolean).join(" · ") + (pr.calib.why ? ". " + pr.calib.why : "")) : null));
     }
     const ops = k.opinions || [];
     const missions = k.missions || [];
@@ -1039,6 +1162,14 @@
         f.good ? el("div", { class: "small", text: "Worked: " + f.good }) : null,
         (f.fixes || []).map((x) => el("div", { class: "small", text: "Fact fix: " + (x.said ? "\u201c" + x.said + "\u201d → " : "") + (x.actually || "") })),
         f.next ? el("div", { class: "small", text: "Next: " + f.next }) : null))));
+    const fx = (data.feed && data.feed.extras) || {};
+    if (Array.isArray(fx.bonus) && fx.bonus.length || fx.game) {
+      const tried = (fx.bonus || []).filter((f) => ev[f.id + ":fun"]), triv = (fx.bonus || []).filter((f) => f.kind === "trivia" && ev[f.id + ":fun"]);
+      const ge = ev["game:game"]; let gr = null; try { gr = ge && JSON.parse(ge.answer || "{}"); } catch (e) { }
+      nodes.push(el("div", { class: "card ans" }, el("div", { class: "eyebrow", text: "🎁 Bonus rounds and game" }),
+        el("div", { class: "small", text: (fx.bonus || []).length ? "Bonus rounds: " + tried.length + " of " + fx.bonus.length + " done" + (triv.length ? " · trivia " + triv.filter((f) => ev[f.id + ":fun"].correct).length + "/" + triv.length + " right" : "") + " (" + (fx.bonus || []).map((f) => f.topic).filter(Boolean).join(", ") + ")" : "" }),
+        fx.game ? el("div", { class: "small", text: "🎮 " + ((GAMES[fx.game.type] || [])[1] || "Game") + ": " + (ge ? (gr && gr.score != null ? gr.score + " / " + gr.total : ge.choice) : "skipped") }) : null));
+    }
     if (data.feed) {
       const m = data.feed.extras && data.feed.extras.mission_checkin, me = ev["mission:mission"];
       if (m) nodes.push(el("div", { class: "card ans" }, el("div", { class: "eyebrow", text: "Mission check-in" }), el("div", { text: m.text }), el("div", { class: "his " + (me ? "" : "none"), text: me ? ["Not yet", "Partly", "Did it"][me.choice] : "No answer" })));

@@ -474,3 +474,45 @@ input[type=number]{border:1.5px solid var(--line);border-radius:10px;padding:10p
 @keyframes nudgeIn{from{transform:scale(.85);opacity:0}to{transform:none;opacity:1}}
 @keyframes wiggle{0%,100%{transform:rotate(0)}25%{transform:rotate(-12deg)}75%{transform:rotate(12deg)}}
 @media (prefers-reduced-motion:reduce){.pausebox.nudge .pz-in,.pausebox.nudge .big{animation:none}}
+
+/* Bonus rounds + mini-games */
+.g-fun{--g1:#FFB020;--g2:#FF5E8A}
+.g-game{--g1:#7C5CFF;--g2:#22C3A6}
+.segs i.mini{flex:.45}
+.inner.fun{display:grid;gap:14px}
+.inner.fun .setup,.inner.fun .factt{font-family:var(--read);font-size:20px;line-height:1.45;margin:0}
+.inner.fun .punch{font-family:var(--display);font-weight:800;font-size:22px;margin:0;animation:inR .3s ease}
+.actions.center{justify-content:center}
+.tot{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.totb{min-height:90px;border-radius:16px;border:2px solid var(--line);background:var(--surface);font:inherit;font-weight:700;font-size:16px;color:inherit;padding:12px;cursor:pointer}
+.totb.on{border-color:var(--signal);background:var(--signal-soft)}
+.inner.game{display:grid;gap:14px}
+.btn.big{min-height:60px;font-size:20px}
+.gres{text-align:center;font-size:18px}
+.ghud{display:flex;align-items:center;gap:12px}
+.gbar{flex:1;height:10px;border-radius:99px;background:var(--line);overflow:hidden}
+.gbar i{display:block;height:100%;width:100%;background:linear-gradient(90deg,#22C3A6,#7C5CFF);transition:width .2s linear}
+.gsc{font-size:28px;font-weight:800;min-width:2ch;text-align:right}
+.stage{display:grid;gap:12px;border-radius:18px;padding:4px}
+.stage.ok{animation:flashOk .35s}
+.stage.no{animation:shake .35s}
+@keyframes flashOk{50%{background:var(--good-soft)}}
+@keyframes shake{25%{transform:translateX(-6px)}75%{transform:translateX(6px)}}
+.gcard{font-family:var(--read);font-size:21px;line-height:1.4;background:var(--surface);border:1px solid var(--line);border-radius:18px;padding:18px}
+.gbtns,.gopts{display:grid;gap:10px}
+.gbtns{grid-template-columns:1fr 1fr}
+.gbtns .btn,.gopts .btn{min-height:56px;font-size:17px}
+.gnote{font-size:15px;background:var(--surface);border-radius:12px;padding:8px 12px}
+.hlrow{display:grid;grid-template-columns:1fr auto 1fr;gap:8px;align-items:stretch}
+.hl{min-height:110px;border-radius:18px;border:2px solid var(--line);background:var(--surface);font:inherit;color:inherit;padding:12px;cursor:pointer;font-size:16px}
+.vs{align-self:center;font-weight:800;color:var(--graphite)}
+.emo{font-size:54px;text-align:center;letter-spacing:6px}
+.mgrid{display:grid;grid-template-columns:1fr 1.4fr;gap:10px}
+.mcol{display:grid;gap:8px;align-content:start}
+.mb{border:2px solid var(--line);background:var(--surface);border-radius:12px;padding:10px;font:inherit;font-size:14px;color:inherit;text-align:left;cursor:pointer;min-height:48px}
+.mb.sel{border-color:var(--signal);background:var(--signal-soft)}
+.mb.gone{visibility:hidden}
+.mb.miss{border-color:var(--bad);animation:shake .3s}
+.gover{text-align:center;display:grid;gap:4px;padding:10px 0}
+.gover h3{font-size:40px;margin:0}
+@media (prefers-reduced-motion:reduce){.stage.ok,.stage.no,.mb.miss{animation:none}}
