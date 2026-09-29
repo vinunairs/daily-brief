@@ -516,3 +516,4 @@ input[type=number]{border:1.5px solid var(--line);border-radius:10px;padding:10p
 .gover{text-align:center;display:grid;gap:4px;padding:10px 0}
 .gover h3{font-size:40px;margin:0}
 @media (prefers-reduced-motion:reduce){.stage.ok,.stage.no,.mb.miss{animation:none}}
+.tiles.two{grid-template-columns:1fr 1fr;margin-top:10px}

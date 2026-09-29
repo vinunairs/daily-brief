@@ -267,6 +267,16 @@
         el("span", { class: "te", text: unlocked ? "🏆" : "🔒" }), el("span", { class: "tk", text: "Recall quiz · +" + PTS.recallRight + " each" }),
         el("span", { class: "tt", text: unlocked ? qd + " of " + qz.length + " answered" : "Unlocks after " + QUIZ_UNLOCK + " cards" })));
     }
+    const fx = S.feed.extras || {}, bon = Array.isArray(fx.bonus) ? fx.bonus : [], gm = fx.game && Array.isArray(fx.game.items) && fx.game.items.length ? fx.game : null;
+    if (bon.length || gm) {
+      const at = (pred) => () => { const items = deckItems(), k = items.findIndex(pred); S.view = "deck"; S.painted = null; S.idx = Math.max(0, k); paintLearner(); window.scrollTo(0, 0); };
+      const bdone = bon.filter((f) => has(f.id, "fun")).length, next = bon.find((f) => !has(f.id, "fun")) || bon[0];
+      nodes.push(el("div", { class: "tiles two" },
+        gm ? el("button", { class: "tile g-game" + (has("game", "game") ? " read" : ""), onclick: at((x) => x.t === "game") },
+          el("span", { class: "te", text: (GAMES[gm.type] || ["🎮"])[0] }), el("span", { class: "tk", text: "Game · 60 s" }), el("span", { class: "tt", text: (GAMES[gm.type] || [0, "Mini-game"])[1] }), has("game", "game") ? el("span", { class: "tick", text: "✓" }) : null) : null,
+        bon.length ? el("button", { class: "tile g-fun" + (bdone === bon.length ? " read" : ""), onclick: at((x) => x.t === "fun" && x.f === next) },
+          el("span", { class: "te", text: "🎁" }), el("span", { class: "tk", text: "Bonus rounds" }), el("span", { class: "tt", text: bdone + " of " + bon.length + " · " + [...new Set(bon.map((f) => f.topic).filter(Boolean))].slice(0, 3).join(", ") }), bdone === bon.length ? el("span", { class: "tick", text: "✓" }) : null) : null));
+    }
     const days = (S.stats.days || []).slice(-7);
     if (days.length) nodes.push(el("div", { class: "week" }, el("div", { class: "eyebrow", text: "Your week" }), el("div", { class: "wk" }, days.map((d) => el("div", { class: "wd" + (d.read >= 6 ? " on" : d.pts ? " some" : "") + (d.d === today ? " today" : "") },
       el("i", {}), el("span", { text: new Date(d.d + "T12:00:00Z").toLocaleDateString("en-US", { weekday: "narrow", timeZone: "UTC" }) }))))));
