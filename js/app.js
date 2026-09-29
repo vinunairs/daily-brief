@@ -10,7 +10,7 @@
   const SITE = location.origin + location.pathname;
   const TZ = "America/New_York";
   const QUIZ_UNLOCK = 6; // cards read before the recall quiz opens
-  const PTS = { readLong: 3, readShort: 1, right: 8, wrong: 2, opinion: 5, reflect: 5, recallRight: 10, recallWrong: 2, complete: 20, mission: [2, 6, 10], confused: 1, ask: 3, speak: 6, question: 4 };
+  const PTS = { readLong: 3, readShort: 1, right: 8, wrong: 2, opinion: 5, reflect: 5, recallRight: 10, recallWrong: 2, complete: 20, mission: [2, 6, 10], confused: 1, ask: 3, speak: 6, question: 4, feedback: 2 };
   const CAT = { basics: "Foundations", local: "Tampa Bay", science: "Science", climate: "Climate", civics: "US & Civics", culture: "Culture & Sports", finance: "Finance", tech: "Tech", health: "Health", world: "World", reasoning: "Reasoning", skills: "Life skills", social: "People skills" };
   const KIND = { estimation: "Estimate it", flaw: "Spot the flaw", logic: "Logic", pattern: "Pattern", triage: "Triage", interview: "Interview", money: "Money", workplace: "Work smarts", communication: "Communication", decision: "Decisions",
     conversation: "Conversation", jargon: "Jargon", street: "Street smarts", self: "Self-check" };
@@ -207,7 +207,7 @@
     if (!S.feed) {
       nodes.push(el("section", { class: "hero2" }, el("div", { class: "date", text: prettyDate(today) }), el("h1", { text: greeting() + (name ? ", " + name : "") })),
         el("div", { class: "card pad", text: "Your first brief is being prepared. Check back after 7 a.m." }));
-      return $app.replaceChildren(...nodes);
+      return $app.replaceChildren(...nodes.filter((x) => x != null));
     }
     const n = readCount(), total = S.feed.cards.length;
     const started = n > 0, done = allDone();
@@ -228,6 +228,8 @@
       el("div", { class: "cta-sub muted small", text: done ? "All done for today. Nice work." : "⏱ " + Math.round(targetMs() / 60000) + "-min brief · " + (total - n) + " cards left" + (usedMs() > 30000 ? " · " + fmt(usedMs()) + " used" : "") })));
     if (S.feed.feed_date !== today && !S.preview) nodes.push(el("div", { class: "stale", text: "Today's brief isn't ready yet, so here's the latest one (" + prettyDate(S.feed.feed_date, { weekday: "short", month: "short" }) + ")." }));
     if (S.note && S.note.note) nodes.push(el("div", { class: "coach2" }, el("div", { class: "av", text: "🧭" }), el("div", {}, el("b", { text: "Coach" }), el("p", { text: S.note.note }))));
+    nodes.push(weekView());
+    nodes.push(feedbackView());
     nodes.push(answersView());
     nodes.push(missionView());
     nodes.push(el("div", { class: "section-h" }, el("h3", { text: "Today's lineup" }), el("span", { class: "muted small", text: n + "/" + total + " read" })));
@@ -250,7 +252,7 @@
     if (days.length) nodes.push(el("div", { class: "week" }, el("div", { class: "eyebrow", text: "Your week" }), el("div", { class: "wk" }, days.map((d) => el("div", { class: "wd" + (d.read >= 6 ? " on" : d.pts ? " some" : "") + (d.d === today ? " today" : "") },
       el("i", {}), el("span", { text: new Date(d.d + "T12:00:00Z").toLocaleDateString("en-US", { weekday: "narrow", timeZone: "UTC" }) }))))));
     if (S.preview) nodes.unshift(el("div", { class: "preview-banner" }, el("span", { text: "Preview of " + S.preview.name + "'s brief for " + prettyDate(S.feed.feed_date, { weekday: "short", month: "short" }) + ". Nothing is recorded." }), el("button", { class: "btn ghost", onclick: () => { S.preview = null; S.me.learner = null; route(); } }, "Back")));
-    $app.replaceChildren(...nodes);
+    $app.replaceChildren(...nodes.filter((x) => x != null));
   }
 
   function openDeck(i) {
@@ -470,18 +472,64 @@
       el("button", { class: "rx" + (v < 0 ? " on down" : ""), "aria-pressed": String(v < 0), onclick: () => set(-1) }, "👎 Not for me"));
   }
 
+  // Instant coaching on how an answer is built (structure only; facts get checked overnight).
+  const RX = {
+    reason: /\b(because|since|so that|which means|that means|due to|that's why|thats why|as a result|for example|for instance|like when)\b/i,
+    other: /\b(but|however|although|though|on the other hand|unless|even if|downside|trade-?off|the risk|at the same time|then again)\b/i,
+    closed: /^\s*(is|are|was|were|do|does|did|can|could|will|would|should|has|have|had|isn't|aren't|don't|didn't)\b/i,
+    open: /^\s*(why|how|what|which|who|where|when|in what way|to what extent)\b/i,
+    deep: /\b(why|what if|what happens|how would|how do you know|evidence|assum|instead|trade-?off|cost|risk|long[- ]term|who (pays|benefits|loses)|what would change|compared)\b/i,
+    filler: /\b(um+|uh+|you know|kind of|sort of|basically|literally)\b/gi
+  };
+  const STOP = new Set("about after again against their there these those which while would could should other being because people still today first where things".split(" "));
+  function storyWords(c) { return new Set((((c.title || "") + " " + (c.body || "")).toLowerCase().match(/[a-z]{5,}/g) || []).filter((w) => !STOP.has(w))); }
+  function quickTips(kind, text, c, ms) {
+    const t = (text || "").trim(), words = t ? t.split(/\s+/).length : 0;
+    const first = t.split(/(?<=[.!?])\s+/)[0] || "";
+    if (kind === "opinion") return [
+      [words && first.split(/\s+/).length <= 25, "Point up front", "Start with your answer in one short sentence."],
+      [RX.reason.test(t), "Gave a reason", "Add a reason: “because…” or an example."],
+      [RX.other.test(t), "Saw the other side", "Show you see the trade-off: “but…”, “unless…”."]];
+    if (kind === "question") {
+      const sw = storyWords(c), tied = (t.toLowerCase().match(/[a-z]{5,}/g) || []).some((w) => sw.has(w));
+      return [
+        [!RX.closed.test(t) && (RX.open.test(t) || /\?/.test(t) && !RX.closed.test(t)), "Open question", "Yes/no questions stop the conversation. Start with why, how or what."],
+        [tied, "Specific to the story", "Name the thing you're asking about, so only this story could answer it."],
+        [RX.deep.test(t), "Digs deeper", "Go one layer down: a cause, a cost, who wins or loses, what if."]];
+    }
+    if (kind === "speak") {
+      const s = Math.round((ms || 0) / 1000), fill = (t.match(RX.filler) || []).length;
+      return [
+        [words >= 25 && first.split(/\s+/).length <= 30, "Point up front", "Open with the headline in one sentence."],
+        [RX.reason.test(t), "Said why it matters", "Add “it matters because…”"],
+        [s ? s >= 18 && s <= 50 : words >= 40 && words <= 130, s ? "Good length (" + s + " s)" : "Good length", s && s < 18 ? "A bit short: add why it matters and what you think." : "Tighten it to about 30 seconds: point, reason, your view."],
+        [fill <= 2, "Few fillers", "Pause instead of “um” or “like”. Silence sounds confident."]];
+    }
+    return [];
+  }
+  function tipsView(kind, text, c, ms, live) {
+    const tips = quickTips(kind, text, c, ms);
+    if (!tips.length) return null;
+    const got = tips.filter((x) => x[0]).length;
+    return el("div", { class: "tips" + (live ? " live" : "") },
+      el("div", { class: "tips-h" }, el("b", { text: live ? "Checklist" : "Quick coaching" }), el("span", { class: "muted small", text: got + " of " + tips.length })),
+      el("ul", {}, tips.map(([ok, label, hint]) => el("li", { class: ok ? "ok" : "todo" }, el("span", { class: "tk", text: ok ? "✓" : "○" }), el("span", {}, el("b", { text: label }), ok ? null : el("span", { class: "muted small", text: " " + hint }))))),
+      live ? null : el("div", { class: "muted small", text: "Your coach also checks your facts and gives feedback tomorrow on your home screen." }));
+  }
+
   // 🎤 Say it out loud: speech-to-text practice (falls back to typing where the browser can't transcribe).
   function speakView(c) {
     const ev = S.events.get(evKey(c.id, "speak"));
     const box = el("div", { class: "speak" }, el("b", { text: "🎤 Say it out loud" }), el("div", { class: "q", text: c.speak }));
-    if (ev) { box.append(el("div", { class: "saved", text: ev.answer }), el("div", { class: "muted small", text: "Saved · " + Math.round((ev.ms || 0) / 1000) + " s · +" + ev.points + ". Your coach gives tips on it tomorrow." })); return box; }
+    if (ev) { box.append(el("div", { class: "saved", text: ev.answer }), el("div", { class: "muted small", text: "Saved · " + Math.round((ev.ms || 0) / 1000) + " s · +" + ev.points }), tipsView("speak", ev.answer, c, ev.ms)); return box; }
     if (S.preview) return box;
     const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
     const out = el("div", { class: "transcript", "aria-live": "polite" });
     const clock = el("span", { class: "num speakclock", text: "0:00" });
     const save = el("button", { class: "btn signal", hidden: true }, "Save");
     let t0 = 0, iv = null, text = "", rec = null;
-    const finish = () => { clearInterval(iv); iv = null; if (rec) try { rec.stop(); } catch (e) { } go.textContent = "🎙 Try again"; save.hidden = !text.trim(); };
+    const tipsBox = el("div");
+    const finish = () => { clearInterval(iv); iv = null; if (rec) try { rec.stop(); } catch (e) { } go.textContent = "🎙 Try again"; save.hidden = !text.trim(); tipsBox.replaceChildren(text.trim() ? tipsView("speak", text, c, Date.now() - t0, true) || "" : ""); };
     const go = el("button", { class: "btn mic", onclick: () => {
       if (iv) return finish();
       text = ""; out.textContent = "Listening… start talking.";
@@ -495,12 +543,12 @@
       try { rec.start(); } catch (e) { rec.onerror(); }
     } }, "🎙 Start talking");
     const ta = el("textarea", { hidden: !!SR, placeholder: "Say it out loud first, then type roughly what you said.", maxlength: "800", "aria-label": "What you said" });
-    ta.addEventListener("input", () => { text = ta.value; save.hidden = text.trim().length < 15; });
+    ta.addEventListener("input", () => { text = ta.value; save.hidden = text.trim().length < 15; tipsBox.replaceChildren(text.trim().length >= 15 ? tipsView("speak", text, c, t0 ? Date.now() - t0 : 0, true) : ""); });
     save.addEventListener("click", async () => {
       const ms = t0 ? Math.min(Date.now() - t0, 600000) : 0;
       if (await record({ card_id: c.id, kind: "speak", answer: text.trim().slice(0, 800), ms: Math.round(ms), points: PTS.speak })) { gain(PTS.speak, "Nice delivery"); paintLearner(true); }
     });
-    box.append(el("div", { class: "actions" }, go, clock), out, ta, save,
+    box.append(el("div", { class: "actions" }, go, clock), out, ta, tipsBox, save,
       el("div", { class: "muted small", text: "Aim for about 30 seconds: what happened, why it matters, what you think." }));
     return box;
   }
@@ -509,13 +557,59 @@
   function curiousView(c) {
     const ev = S.events.get(evKey(c.id, "question"));
     const box = el("div", { class: "curious" }, el("b", { text: "❓ Question challenge" }), el("div", { class: "q", text: c.curious }));
-    if (ev) { box.append(el("div", { class: "saved", text: ev.answer }), el("div", { class: "muted small", text: "Saved · +" + ev.points + ". The best questions get answered tomorrow." })); return box; }
+    if (ev) { box.append(el("div", { class: "saved", text: ev.answer }), el("div", { class: "muted small", text: "Saved · +" + ev.points + ". The best questions get answered tomorrow." }), tipsView("question", ev.answer, c)); return box; }
     if (S.preview) return box;
     const ta = el("textarea", { placeholder: "Your question. Make it one you really want answered. (+" + PTS.question + ")", maxlength: "300", "aria-label": "Your question" });
     const save = el("button", { class: "btn", disabled: true, onclick: () => saveText(c, "question", ta.value.trim(), PTS.question) }, "Save my question");
-    ta.addEventListener("input", () => (save.disabled = ta.value.trim().length < 10));
-    box.append(ta, el("div", { class: "actions" }, save, el("span", { class: "muted small", text: "Open questions (why, how, what if) score best." })));
+    const qtips = el("div");
+    ta.addEventListener("input", () => { save.disabled = ta.value.trim().length < 10; qtips.replaceChildren(ta.value.trim().length >= 10 ? tipsView("question", ta.value, c, 0, true) : ""); });
+    box.append(ta, qtips, el("div", { class: "actions" }, save, el("span", { class: "muted small", text: "Open questions (why, how, what if) score best." })));
     return box;
+  }
+
+  // 📝 Next-morning feedback written by the coach (extras.feedback) and the Sunday week review (extras.week).
+  const FBK = { opinion: "💬 Your take", speak: "🎤 Said out loud", question: "❓ Your question", check: "⚡ Quick check", recall: "🏆 Recall", ask: "🙋 You asked", fact: "🔎 Fact check" };
+  function feedbackView() {
+    const list = S.feed.extras && S.feed.extras.feedback;
+    if (!Array.isArray(list) || !list.length) return null;
+    const seen = list.filter((f, i) => has(fbId(f, i), "feedback")).length;
+    return el("section", { class: "fb" },
+      el("div", { class: "fb-h" }, el("div", { class: "eyebrow", text: "📝 Your feedback" + (list[0].ref ? " · from " + prettyDate(list[0].ref, { weekday: "short", month: "short" }) : "") }), el("span", { class: "muted small", text: seen + "/" + list.length + " read" })),
+      list.map((f, i) => fbItem(f, i)));
+  }
+  function fbId(f, i) { return "fb:" + (f.card_id || i) + ":" + (f.kind || "x"); }
+  function fbItem(f, i) {
+    const id = fbId(f, i), done = has(id, "feedback");
+    const d = el("details", { class: "fbi" + (done ? " done" : "") + (Array.isArray(f.fixes) && f.fixes.length ? " hasfix" : "") });
+    if (!done && i === 0) d.open = true;
+    d.append(el("summary", {}, el("span", { class: "fk", text: FBK[f.kind] || "📝 Feedback" }), el("span", { class: "ft", text: f.title || "" }),
+      typeof f.score === "number" ? el("span", { class: "dots", "aria-label": f.score + " of 3" }, [0, 1, 2].map((k) => el("i", { class: k < f.score ? "on" : "" }))) : null,
+      Array.isArray(f.fixes) && f.fixes.length ? el("span", { class: "fixtag", text: "Fact fix" }) : null));
+    const body = el("div", { class: "fbb" });
+    if (f.answer) body.append(el("q", { class: "said", text: f.answer }));
+    if (Array.isArray(f.checks) && f.checks.length) body.append(el("ul", { class: "tips-l" }, f.checks.map((x) => el("li", { class: x.ok ? "ok" : "todo" }, el("span", { class: "tk", text: x.ok ? "✓" : "○" }), el("span", { text: x.t })))));
+    if (f.good) body.append(el("p", { class: "good" }, el("b", { text: "What worked " }), f.good));
+    if (Array.isArray(f.fixes)) for (const x of f.fixes) body.append(el("div", { class: "fix" },
+      el("b", { text: "🔎 Fact fix" }),
+      x.said ? el("p", {}, el("span", { class: "muted", text: "You said: " }), x.said) : null,
+      el("p", {}, el("span", { class: "muted", text: "Actually: " }), x.actually || ""),
+      x.source && /^https:\/\//.test(x.source.url || "") ? el("a", { href: x.source.url, target: "_blank", rel: "noopener", class: "small", text: "Source: " + (x.source.name || "link") }) : null));
+    if (f.next) body.append(el("p", { class: "next" }, el("b", { text: "Try next time " }), f.next));
+    if (f.better) body.append(el("div", { class: "better" }, el("b", { text: "A stronger version" }), el("p", { text: f.better })));
+    if (!S.preview) body.append(done ? el("div", { class: "muted small", text: "✓ Got it" }) : el("button", { class: "btn ghost", onclick: async () => {
+      if (await record({ card_id: id, kind: "feedback", points: PTS.feedback })) { gain(PTS.feedback, "Learning from feedback"); paintLearner(true); }
+    } }, "Got it (+" + PTS.feedback + ")"));
+    d.append(body);
+    return d;
+  }
+  function weekView() {
+    const w = S.feed.extras && S.feed.extras.week;
+    if (!w || (!w.win && !w.focus)) return null;
+    return el("section", { class: "wkrev" }, el("div", { class: "eyebrow", text: "🗓 Your week in review" }),
+      w.win ? el("p", {}, el("b", { text: "📈 Got better: " }), w.win) : null,
+      w.focus ? el("p", {}, el("b", { text: "🎯 Next week: " }), w.focus) : null,
+      Array.isArray(w.evidence) && w.evidence.length ? el("ul", {}, w.evidence.map((x) => el("li", { text: x }))) : null,
+      Array.isArray(w.facts) && w.facts.length ? el("div", { class: "fix" }, el("b", { text: "🔎 Facts worth remembering" }), el("ul", {}, w.facts.map((x) => el("li", { text: x })))) : null);
   }
 
   function answersView() {
@@ -536,12 +630,13 @@
   function talkView(c) {
     const ev = S.events.get(evKey(c.id, "opinion"));
     const wrap = el("div", { class: "talk" }, el("div", { class: "q", text: c.talk }));
-    if (ev) { wrap.append(el("div", { class: "saved", text: ev.answer }), el("div", { class: "muted small", text: "Saved · +" + ev.points + ". Strong reasons earn bonus points tomorrow." })); return wrap; }
+    if (ev) { wrap.append(el("div", { class: "saved", text: ev.answer }), el("div", { class: "muted small", text: "Saved · +" + ev.points + ". Strong reasons earn bonus points tomorrow." }), tipsView("opinion", ev.answer, c)); return wrap; }
     if (S.preview) return wrap;
     const ta = el("textarea", { placeholder: "Your take in 1–3 sentences. Give a reason. (+" + PTS.opinion + ")", maxlength: "600", "aria-label": "Your answer" });
     const save = el("button", { class: "btn", disabled: true, onclick: () => saveOpinion(c, ta.value.trim()) }, "Save my take");
-    ta.addEventListener("input", () => (save.disabled = ta.value.trim().length < 15));
-    wrap.append(ta, el("div", { class: "actions" }, save, el("span", { class: "muted small", text: "Graded on your reasons, not your side." })));
+    const otips = el("div");
+    ta.addEventListener("input", () => { save.disabled = ta.value.trim().length < 15; otips.replaceChildren(ta.value.trim().length >= 15 ? tipsView("opinion", ta.value, c, 0, true) : ""); });
+    wrap.append(ta, otips, el("div", { class: "actions" }, save, el("span", { class: "muted small", text: "Graded on your reasons, not your side." })));
     return wrap;
   }
 
@@ -687,7 +782,7 @@
     if (!kids.length) nodes.push(el("div", { class: "card pad", text: "No one added yet." }));
     for (const k of kids) nodes.push(k.private ? privateView(k) : kidView(k));
     nodes.push(addPersonView());
-    $app.replaceChildren(...nodes);
+    $app.replaceChildren(...nodes.filter((x) => x != null));
   }
 
   const BAND = { explorer: "Grades 3–5 level", builder: "Middle-school level", challenger: "High-school level", adult: "Adult level" };
@@ -907,6 +1002,13 @@
         r.knowledge ? el("div", {}, el("div", { class: "eyebrow", text: "What his answers show about his knowledge" }), el("div", { class: "report", text: r.knowledge })) : null,
         r.plan ? el("div", { class: "plan" }, el("div", { class: "eyebrow", text: "Plan forward" }), el("div", { class: "report", text: r.plan })) : null));
     } else nodes.push(el("div", { class: "stale", text: data.feed ? "The evaluation of this day appears the next morning after 5:40 a.m." : "No brief on this day." }));
+    const fbl = data.feed && data.feed.extras && data.feed.extras.feedback;
+    if (Array.isArray(fbl) && fbl.length) nodes.push(el("details", { class: "card kid fbgiven" },
+      el("summary", {}, el("b", { text: "📝 Feedback he got this morning" }), el("span", { class: "muted small", text: " · " + fbl.filter((f, i) => ev[fbId(f, i) + ":feedback"]).length + " of " + fbl.length + " read · " + fbl.reduce((t, f) => t + ((f.fixes || []).length), 0) + " fact fixes" })),
+      fbl.map((f, i) => el("div", { class: "note" }, el("b", { text: (FBK[f.kind] || "📝") + (f.title ? " · " + f.title : "") + (ev[fbId(f, i) + ":feedback"] ? " ✓" : "") }),
+        f.good ? el("div", { class: "small", text: "Worked: " + f.good }) : null,
+        (f.fixes || []).map((x) => el("div", { class: "small", text: "Fact fix: " + (x.said ? "\u201c" + x.said + "\u201d → " : "") + (x.actually || "") })),
+        f.next ? el("div", { class: "small", text: "Next: " + f.next }) : null))));
     if (data.feed) {
       const m = data.feed.extras && data.feed.extras.mission_checkin, me = ev["mission:mission"];
       if (m) nodes.push(el("div", { class: "card ans" }, el("div", { class: "eyebrow", text: "Mission check-in" }), el("div", { text: m.text }), el("div", { class: "his " + (me ? "" : "none"), text: me ? ["Not yet", "Partly", "Did it"][me.choice] : "No answer" })));
@@ -946,7 +1048,7 @@
         nodes.push(box);
       }
     }
-    $app.replaceChildren(...nodes);
+    $app.replaceChildren(...nodes.filter((x) => x != null));
     window.scrollTo(0, 0);
   }
 

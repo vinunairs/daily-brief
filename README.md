@@ -35,6 +35,13 @@ Every card has **👍 More like this / 👎 Not for me** (he can change his mind
 - **Time tracking:** the app records active seconds on each card (pauses, time away and idle time excluded) and every stretch of use with why it ended (break, left the app, idle, closed, finished). In the Parent view, "See his answers" has a **Time** panel: active minutes vs. the target, breaks, times he left the app or went idle, start-to-finish span, and seconds per card, flagging very fast cards (possible skimming) and very long ones (stuck or distracted). The overview shows average minutes a day this week. The morning job uses this to tell three things apart — the brief is too long (over target, few interruptions → shorter cards or +2 min, max 15), distraction (long span, many interruptions → target unchanged, a suggestion in the report), or rushing (fast reads, weak checks → flagged) — and lowers the target when he's quick and accurate.
 - **Checks are required:** he has to answer a card's quick check before moving on, so every card gives a signal of whether he understood it.
 
+## Feedback to the learner
+
+- **Instantly:** quick checks and the recall quiz show right/wrong with an explanation. While typing a take or a question, or after recording a spoken answer, a checklist ticks off structure (point up front, a reason, the other side; open, specific, digs deeper; length and fillers) with a hint for anything missing, so he can improve it before saving.
+- **Next morning ("📝 Your feedback" on the home screen):** for each take, spoken answer and question, the morning job writes his score out of 3, what worked, **fact fixes** (what he said vs. the correct fact or figure, with a source), one thing to try next time, and a stronger version of his own answer. Misconceptions behind repeated wrong checks get a fact-check item too. "Got it" earns 2 points and tells the job he read it.
+- **Sundays ("🗓 Your week in review"):** one skill that improved (with evidence), next week's focus, and the facts he got wrong that week, stated correctly.
+- Reflections never get feedback. The Parent view's "See his answers" shows the feedback he got each day and whether he read it.
+
 ## Help for a beginner
 
 Every news card has a **Catch me up** backstory, key words he can tap to see what they mean, and an **I don't get it** button that shows a simpler version and lets him ask a question. The next morning's brief answers his questions (the "You asked" box on the home screen), and each tap or question is a signal the evaluation uses. For his first 21 briefs, the first card each day is a **Foundations** card explaining one core concept behind that day's news (inflation, the Fed, tariffs, AI models, vaccines and so on).

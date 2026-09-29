@@ -13,7 +13,13 @@ FEED["cards"][9] = {"id": "s2", "type": "skill", "kind": "jargon", "cat": "skill
   "body": "Three terms from this week's news.", "terms": [{"term": "Yield", "means": "The return you earn on a bond.", "example": "The 10-year yield hit 5.2%."}],
   "check": {"q": "A bond's yield is...", "o": ["its return", "its color", "its owner", "its age"], "a": 0, "e": "Yield is the return."}}
 FEED["cards"][0]["say"] = "Did you see gas might go up again?"
-FEED["extras"] = {"mission_checkin": {"text": "Ask a teacher one question after class.", "ref": "2026-09-27"}}
+FEED["extras"] = {"mission_checkin": {"text": "Ask a teacher one question after class.", "ref": "2026-09-27"},
+  "feedback": [{"ref": "2026-09-27", "card_id": "n1", "kind": "opinion", "title": "Should the US reopen the route?", "answer": "Yes because gas is 10 dollars now.", "score": 2,
+    "checks": [{"t": "Clear point up front", "ok": True}, {"t": "Gave a reason", "ok": True}, {"t": "Saw the other side", "ok": False}],
+    "good": "You led with your answer and backed it with a reason.", "fixes": [{"said": "gas is 10 dollars now", "actually": "The US average was about $3.20 a gallon last week.", "source": {"name": "AAA", "url": "https://gasprices.aaa.com/"}}],
+    "next": "Add one 'but' sentence.", "better": "Yes, because higher fuel costs hit families first, but reopening it too fast could raise the risk to ships."},
+   {"ref": "2026-09-27", "card_id": "n3", "kind": "question", "title": "Your question to the AI lab", "answer": "Is AI dangerous?", "score": 1, "good": "You picked a big question.", "next": "Make it open and specific."}],
+  "week": {"win": "Your quick-check accuracy on money stories went from 50% to 80%.", "focus": "Give a reason in every take.", "facts": ["A tariff is a tax on imports, paid by the importer."]}}
 STUB = (ROOT / "test/supabase-stub.js").read_text()
 OUT = pathlib.Path(sys.argv[1]) if len(sys.argv) > 1 else ROOT / "test/out"
 OUT.mkdir(parents=True, exist_ok=True)
@@ -46,6 +52,11 @@ with sync_playwright() as pw:
     # learner flow: home -> deck through all cards -> quiz -> finish -> home mission check-in
     p, errs = page_for(b, "learner")
     p.wait_for_selector(".cta")
+    p.wait_for_selector(".fb .fbi[open] .fix")
+    if not p.locator(".wkrev").count(): fails.append(("week review", 0))
+    p.locator(".fb").screenshot(path=str(OUT / "home-feedback.png"))
+    p.locator(".fb .fbi").first.locator("button", has_text="Got it").click()
+    p.wait_for_selector(".fb .fbi.done")
     p.screenshot(path=str(OUT / "home.png"), full_page=True)
     p.locator(".cta").click()
     p.wait_for_selector(".slide .shead")
@@ -66,6 +77,7 @@ with sync_playwright() as pw:
             p.wait_for_selector(f"#c-{c['id']} .opt.right")
         if i == 0:
             slide.locator(".talk:not(.reflect) textarea").fill("I think reopening the route matters more now because gas prices hurt families.")
+            if not slide.locator(".tips.live").count(): fails.append(("live tips", 0))
             slide.locator("button", has_text="Save my take").click()
             p.wait_for_selector(f"#c-{c['id']} .saved")
             p.screenshot(path=str(OUT / "deck-answered.png"))
@@ -116,7 +128,7 @@ with sync_playwright() as pw:
     kinds = {}
     for e in ev: kinds[e["kind"]] = kinds.get(e["kind"], 0) + 1
     print("events:", kinds, "points:", sum(e.get("points", 0) for e in ev))
-    if kinds.get("read") != 10 or kinds.get("check") != sum(1 for c in FEED["cards"] if c.get("check")) or kinds.get("recall") != 3 or kinds.get("opinion") != 1 or kinds.get("bonus") != 1 or kinds.get("reflect") != 1 or kinds.get("mission") != 1 or kinds.get("confused") != 1 or kinds.get("ask") != 1 or kinds.get("question") != 1 or kinds.get("like") != 1:
+    if kinds.get("read") != 10 or kinds.get("check") != sum(1 for c in FEED["cards"] if c.get("check")) or kinds.get("recall") != 3 or kinds.get("opinion") != 1 or kinds.get("bonus") != 1 or kinds.get("reflect") != 1 or kinds.get("mission") != 1 or kinds.get("confused") != 1 or kinds.get("ask") != 1 or kinds.get("question") != 1 or kinds.get("like") != 1 or kinds.get("feedback") != 1:
         fails.append(("events", kinds))
     if not all(e["correct"] for e in ev if e["kind"] == "recall"): fails.append(("recall should be correct", ev))
     first_check = [e for e in ev if e["kind"] == "check" and e["card_id"] == first["id"]][0]
@@ -145,6 +157,7 @@ with sync_playwright() as pw:
     p.locator("button", has_text="See his answers").click()
     p.wait_for_selector(".card.ans .note")
     p.wait_for_selector(".timing")
+    if not p.locator(".fbgiven").count(): fails.append(("parent feedback list", 0))
     p.locator(".timing summary").click()
     if "skimmed" not in p.locator(".timing").inner_text(): fails.append(("timing flags", 0))
     p.locator(".timing").screenshot(path=str(OUT / "parent-timing.png"))

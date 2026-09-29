@@ -79,6 +79,16 @@ Levels: children new to following the news start every level at 1 and stay there
 
 **His questions.** For every `ask` event from YESTERDAY, and for his best `question` challenge answer (score 2+), write a clear answer in 2–4 plain sentences he'll understand, with an everyday comparison where it helps. If the answer depends on current facts, look them up. These go in today's `extras.answers`.
 
+**Feedback for the learner** (goes in today's `extras.feedback`; he sees it on his home screen, and it's separate from the parent report). He already got instant right/wrong and an explanation on quick checks and recall, and an instant structure checklist on takes, speaking and questions. This morning feedback adds what only careful reading can: **fact checking** and specific coaching.
+- Write one item for every take (opinion), speaking answer (speak) and question challenge (question) from YESTERDAY. Add a `fact` item when his answers show a factual misunderstanding elsewhere, e.g. the same misconception behind two wrong checks or recall answers, or a wrong assumption inside an "I don't get it" question. At most 7 items; put the ones with fact fixes first. Never give feedback on reflections, and never mention Vinu or that anyone else reads his answers.
+- **Fact and data corrections are the priority.** Check every factual claim, number, name, date, cause and comparison in his answer against a reliable source you actually opened (search if needed). For each real error add a fix: `{"said":"<his words, short>","actually":"<the correct fact or figure, with the right units and date>","source":{"name":"…","url":"https://…"}}`. Also correct wrong numbers-sense (e.g. mixing millions and billions, percent vs percentage points, confusing price with cost), and misused terms. Only correct what's actually wrong; don't nitpick rounding or opinions, and never "correct" his side of a debate. If a claim is contested or can't be verified, say that instead of calling it wrong.
+- For each item: `score` (the same 0–3 you gave it), `checks` (the rubric lines with ok true/false), `good` (one specific thing that worked, quoting or naming it), `next` (one concrete thing to try next time), and, when it helps, `better` (a stronger version of *his* answer in his own voice, keeping his side, 1–3 sentences, correct facts).
+- Tone: a coach who's on his side. Second person, plain words for his band, specific, short. Praise real strengths first; no sarcasm, no "wrong!", no piling on.
+- Look at which feedback items he opened (kind='feedback', card_id `fb:<card_id>:<kind>`). If he skips feedback, make items shorter and lead with the fact fix; mention in the parent report whether he reads his feedback.
+- Format: `[{"ref":"YESTERDAY","card_id":"n2","kind":"opinion|speak|question|fact","title":"the card title or a short label","answer":"his answer, trimmed to ~200 characters","score":0-3,"checks":[{"t":"Clear point up front","ok":true},…],"good":"…","fixes":[…],"next":"…","better":"…"}]`. `fixes`, `better` and `score` are optional (a `fact` item has no score).
+
+**Week in review (Sundays only)** → `extras.week`: `{"win":"one skill that clearly improved this week, with the evidence (numbers or a before/after of his own answers)","focus":"the one skill to work on next week and how","evidence":["≤3 short concrete examples"],"facts":["≤4 facts he got wrong this week, now stated correctly, worth remembering"]}`. Honest but encouraging; if it was a thin week, say what one small step would make next week better.
+
 ## Step 2 — Research today's news
 
 Use web search to find the most important news from the last ~36 hours. Gather **facts** (numbers, names, dates) plus one reliable source URL per story (prefer AP, Reuters, BBC, NPR, CNBC, official .gov or company pages). Verify every number against a source you actually opened. Never copy article wording.
@@ -148,7 +158,7 @@ Rules: ids b1 (when present), n1–n5 (n1–n4 on basics days), r1–r2, g1–g3
 - over target **with many times away or idle pauses, or a span much longer than the active time**: that's distraction, not length. Don't raise the target; mention it in the report with a practical suggestion (a set time and place, phone on focus mode);
 - well under target (by 40%+) **with many fast reads and weak check accuracy**: that's rushing. Keep the target and say so in the report;
 - well under target **with strong accuracy**: lower the target by 1–2 minutes (never below the band default minus 2) or add a stretch question.
-Plus, when they apply, `mission_checkin` (if YESTERDAY's brief had a card with a `mission`: `{"text":"<that mission>","ref":"YESTERDAY"}`) and `answers` (his questions from yesterday with your answers: `[{"q":"<his question>","a":"<your answer>"}]`).
+Plus, when they apply, `mission_checkin` (if YESTERDAY's brief had a card with a `mission`: `{"text":"<that mission>","ref":"YESTERDAY"}`), `answers` (his questions from yesterday with your answers: `[{"q":"<his question>","a":"<your answer>"}]`), `feedback` (see Step 1; required whenever he answered anything yesterday), and on Sundays `week`.
 
 **Headline**: one line (≤ 90 characters) naming 2–3 of today's stories, used in the notification.
 
@@ -162,4 +172,4 @@ Read it back (`select jsonb_array_length(cards) …`) to confirm.
 
 ## Finish
 
-End with a 3–5 line summary: per learner, the feed saved (yes/no), the report saved with how many answer notes, yesterday's cards read and check accuracy, which goals today's brief covered, and anything that went wrong. Only report what the tool results confirm.
+End with a 3–5 line summary: per learner, the feed saved (yes/no), the report saved with how many answer notes, how many feedback items and fact fixes he got, yesterday's cards read and check accuracy, which goals today's brief covered, and anything that went wrong. Only report what the tool results confirm.
