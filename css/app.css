@@ -468,3 +468,9 @@ input[type=number]{border:1.5px solid var(--line);border-radius:10px;padding:10p
 .better p{margin:4px 0 0;font-family:var(--read)}
 .wkrev p{margin:0;font-size:15px}
 .wkrev ul{margin:0;padding-left:18px;font-size:14px}
+.pausebox.nudge .pz-in{animation:nudgeIn .45s cubic-bezier(.2,1.4,.4,1)}
+.pausebox.nudge .big{animation:wiggle 1.2s ease-in-out 2}
+.pausebox.nudge .btn.ghost{margin-top:8px}
+@keyframes nudgeIn{from{transform:scale(.85);opacity:0}to{transform:none;opacity:1}}
+@keyframes wiggle{0%,100%{transform:rotate(0)}25%{transform:rotate(-12deg)}75%{transform:rotate(12deg)}}
+@media (prefers-reduced-motion:reduce){.pausebox.nudge .pz-in,.pausebox.nudge .big{animation:none}}

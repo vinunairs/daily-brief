@@ -135,6 +135,26 @@ with sync_playwright() as pw:
     if not first_check["correct"] or first_check["choice"] != first["check"]["a"]: fails.append(("first check mapping", first_check))
     if errs: fails.append(("learner", errs))
 
+    # focus nudge after ~75 s with no interaction on a card
+    ctx = b.new_context(viewport={"width": 390, "height": 844}, device_scale_factor=2)
+    p = ctx.new_page(); nerrs = []
+    p.on("pageerror", lambda e: nerrs.append(str(e)))
+    p.route("**/fonts.googleapis.com/**", lambda r: r.abort())
+    p.route("**/js/vendor/supabase-*.js", lambda r: r.fulfill(status=200, content_type="application/javascript",
+        body=f"window.__MODE='learner';window.__FEED={json.dumps(FEED)};" + STUB))
+    p.clock.install()
+    p.goto("http://127.0.0.1:8765/index.html")
+    p.wait_for_selector(".cta"); p.locator(".cta").click(); p.wait_for_selector(".slide .shead")
+    p.clock.run_for(80000)
+    p.wait_for_selector(".pausebox.nudge")
+    p.wait_for_timeout(700); p.screenshot(path=str(OUT / "nudge.png"))
+    p.locator(".pausebox.nudge button", has_text="focused").click()
+    if p.locator(".pausebox").count(): fails.append(("nudge not dismissed", 0))
+    nev = [e for e in p.evaluate("window.__EVENTS") if e["kind"] == "time"]
+    if not any('"nudge"' in (e.get("answer") or "") and e.get("ms") == 0 for e in nev): fails.append(("nudge event", nev))
+    if nerrs: fails.append(("nudge", nerrs))
+    ctx.close()
+
     # parent view + preview, dark mode
     p, errs = page_for(b, "parent", dark=True)
     p.wait_for_selector(".kid")

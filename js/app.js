@@ -343,12 +343,38 @@
   function cardActive(id) { return (C.acc[id] || 0) + (C.id === id && C.since ? Date.now() - C.since : 0); }
   function timerTick() {
     const pill = document.getElementById("timerPill");
+    if (T.since && !T.paused && S.view === "deck" && !document.hidden && Date.now() - T.lastAct > NUDGE_MS) return focusNudge();
     if (T.since && Date.now() - T.lastAct > 180000) { const idleFrom = T.lastAct; clearInterval(T.iv); T.iv = null; timerFlush(idleFrom, "idle"); timerPause(false, "Looks like you stepped away, so we paused the timer."); return; }
     if (!pill) return;
     const left = targetMs() - usedMs();
     pill.classList.toggle("over", left < 0);
     pill.querySelector(".tt").textContent = "⏱ " + (left >= 0 ? fmt(left) : "+" + fmt(-left));
     if (left < 0 && !T.warned) { T.warned = true; toast("That's your " + Math.round(targetMs() / 60000) + " minutes. Wrap up when you're ready."); }
+  }
+  // Focus nudge: no touch, scroll or key for a while on a card → stop the clock at the last activity and ask him to refocus.
+  const NUDGE_MS = 75000;
+  let nudges = 0;
+  const NUDGE_LINES = [
+    ["👀", "Still with me?", "You haven't touched the screen in over a minute. Let's get back to it."],
+    ["🎯", "Eyes on the brief", "Your mind might be wandering. Put other things away for a few minutes."],
+    ["⚡", "Let's focus", "That's a few drift-offs today. Finish strong: it's only a few minutes."]];
+  function focusNudge() {
+    const idleFrom = T.lastAct;
+    clearInterval(T.iv); T.iv = null; T.paused = true;
+    const card = C.id;
+    timerFlush(idleFrom, "nudge");
+    nudges++;
+    if (S.user && S.feed && !S.preview) record({ card_id: "nudge-" + Date.now(), kind: "time", ms: 0, points: 0, answer: JSON.stringify({ why: "nudge", idle_s: Math.round((Date.now() - idleFrom) / 1000), card, n: nudges }) });
+    const [ico, h, p] = NUDGE_LINES[Math.min(nudges, NUDGE_LINES.length) - 1];
+    const left = Math.max(0, targetMs() - usedMs());
+    const done = () => { ov.remove(); T.paused = false; T.lastAct = Date.now(); timerStart(); };
+    const ov = el("div", { class: "pausebox nudge", role: "alertdialog", "aria-modal": "true", "aria-label": h },
+      el("div", { class: "pz-in" }, el("div", { class: "big", text: ico }), el("h3", { text: h }),
+        el("p", { text: p + (left > 30000 ? " About " + Math.max(1, Math.round(left / 60000)) + " min to go." : "") }),
+        el("button", { class: "btn signal block", onclick: done }, "I'm focused, let's go"),
+        el("button", { class: "btn ghost block", onclick: () => { ov.remove(); T.paused = false; timerPause(true); } }, "I need a short break")));
+    document.body.append(ov);
+    ov.querySelector("button").focus();
   }
   function timerPause(manual, why) {
     clearInterval(T.iv); T.iv = null; timerFlush(null, "pause"); T.paused = true;
@@ -960,7 +986,8 @@
     box.append(el("div", { class: "finstats" },
       el("div", {}, el("b", { text: Math.round(active / 60000) + "m" }), el("span", { text: "active · target " + target })),
       el("div", {}, el("b", { text: count("pause") }), el("span", { text: "breaks taken" })),
-      el("div", {}, el("b", { text: count("away") + count("idle") }), el("span", { text: "left app / idle" }))));
+      el("div", {}, el("b", { text: count("away") + count("idle") }), el("span", { text: "left app / idle" })),
+      el("div", {}, el("b", { text: segs.filter((x) => x.why === "nudge" && !x.ms).length }), el("span", { text: "focus nudges" }))));
     const lines = [];
     if (starts.length) lines.push("Started " + tfmt(Math.min(...starts)) + ", last active " + tfmt(Math.max(...ends)) + " (" + Math.round(span / 60000) + " min from start to finish" + (span > active * 1.5 && span - active > 5 * 60000 ? ", so about " + Math.round((span - active) / 60000) + " min were breaks or time away" : "") + ").");
     if (over > 2) lines.push("Took " + Math.round(over) + " min longer than the target.");
