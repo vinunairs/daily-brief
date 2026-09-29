@@ -206,7 +206,10 @@
     const lv = level(S.stats.total || 0);
     if (!S.feed) {
       nodes.push(el("section", { class: "hero2" }, el("div", { class: "date", text: prettyDate(today) }), el("h1", { text: greeting() + (name ? ", " + name : "") })),
-        el("div", { class: "card pad", text: "Your first brief is being prepared. Check back after 7 a.m." }));
+        el("div", { class: "card pad" }, el("div", { class: "loading", style: "justify-content:flex-start;padding:0 0 8px" }, el("span"), "Your first brief is being put together…"),
+          el("div", { class: "muted small", text: "This page checks every minute and opens it as soon as it's ready. After that, a new brief arrives every morning." })));
+      clearTimeout(S.waitT);
+      if (!S.preview) S.waitT = setTimeout(() => { if (!S.feed && S.view === "home") route(); }, 60000);
       return $app.replaceChildren(...nodes.filter((x) => x != null));
     }
     const n = readCount(), total = S.feed.cards.length;
