@@ -108,6 +108,11 @@ with sync_playwright() as pw:
     p.wait_for_selector(".checkin .small")
     p.screenshot(path=str(OUT / "home-done.png"), full_page=True)
     ev = p.evaluate("window.__EVENTS")
+    import json as _j
+    tev = [e for e in ev if e["kind"] == "time"]
+    if not tev or "why" not in _j.loads(tev[0].get("answer") or "{}"): fails.append(("time segment reason", tev))
+    rd = [e for e in ev if e["kind"] == "read"]
+    if not all(isinstance(e.get("ms"), int) for e in rd): fails.append(("read ms", rd[:2]))
     kinds = {}
     for e in ev: kinds[e["kind"]] = kinds.get(e["kind"], 0) + 1
     print("events:", kinds, "points:", sum(e.get("points", 0) for e in ev))
@@ -139,6 +144,10 @@ with sync_playwright() as pw:
     p.screenshot(path=str(OUT / "parent-add.png"), full_page=True)
     p.locator("button", has_text="See his answers").click()
     p.wait_for_selector(".card.ans .note")
+    p.wait_for_selector(".timing")
+    p.locator(".timing summary").click()
+    if "skimmed" not in p.locator(".timing").inner_text(): fails.append(("timing flags", 0))
+    p.locator(".timing").screenshot(path=str(OUT / "parent-timing.png"))
     if not p.locator(".his.wrong").count() or not p.locator(".plan").count(): fails.append(("answers view", 1))
     p.screenshot(path=str(OUT / "parent-answers.png"), full_page=True)
     p.locator("button", has_text="Back").click()

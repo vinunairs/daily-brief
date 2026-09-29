@@ -419,3 +419,12 @@ body.in-deck{overflow:hidden}
 .addform input{width:100%;min-width:0;border:1.5px solid var(--line);border-radius:10px;padding:10px 12px;background:var(--surface);font-size:16px;color:var(--ink)}
 @media (max-width:420px){.addform{grid-template-columns:1fr 90px}.addform input[type=text]{grid-column:1/-1}}
 input[type=number]{border:1.5px solid var(--line);border-radius:10px;padding:10px 12px;background:var(--surface);font-size:16px;color:var(--ink)}
+
+/* parent timing */
+.cardtimes{display:grid;gap:8px;margin-top:8px}
+.ct{display:grid;grid-template-columns:1fr 70px 42px;gap:4px 8px;align-items:center;font-size:13px}
+.ct .nm{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ct .t{height:8px;border-radius:99px;background:var(--sunk);overflow:hidden}
+.ct .t i{display:block;height:100%;background:var(--grad-cta)}
+.ct .s{text-align:right}
+.ct .fl{grid-column:1/-1;font-size:12px;color:var(--skills);margin-top:-4px}

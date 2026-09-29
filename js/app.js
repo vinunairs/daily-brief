@@ -257,7 +257,7 @@
     S.view = "deck"; S.painted = null; S.idx = Math.max(0, Math.min(i, deckItems().length - 1));
     paintLearner(); window.scrollTo(0, 0);
   }
-  function closeDeck() { timerStop(); S.view = "home"; paintLearner(); window.scrollTo(0, 0); }
+  function closeDeck() { timerStop("close"); S.view = "home"; paintLearner(); window.scrollTo(0, 0); }
 
   let slideScroll = 0;
   function paintDeck(keepScroll) {
@@ -291,7 +291,8 @@
     if (S.preview) top.prepend(el("div", { class: "preview-banner" }, el("span", { text: "Preview · nothing is recorded" }), el("button", { class: "btn ghost", onclick: () => { S.preview = null; S.view = "home"; S.me.learner = null; document.body.classList.remove("in-deck"); route(); } }, "Exit")));
     slide.scrollTop = keepScroll ? slideScroll : 0;
     swipe(slide);
-    if (it.t === "finish") timerStop(); else timerStart();
+    if (it.t === "finish") { timerStop("finish"); C.id = null; }
+    else { timerStart(); if (it.t === "card") cardEnter(it.c.id); else { cardLeave(); C.id = null; } }
     if (it.t === "finish" && allDone() && !S.celebrated) { S.celebrated = true; confetti(); }
   }
 
@@ -309,18 +310,35 @@
   function timerStart() {
     if (S.preview || T.paused || !S.feed) return;
     if (!T.since) { T.since = Date.now(); T.lastAct = Date.now(); }
+    if (C.id && !C.since) C.since = T.since;
     if (!T.iv) T.iv = setInterval(timerTick, 1000);
     timerTick();
   }
-  async function timerFlush(endAt) {
+  // Each active stretch is saved with why it ended (pause, away = left the app, idle, close, finish), its start time,
+  // and the card on screen, so the parent view and the morning job can see breaks and distractions.
+  async function timerFlush(endAt, why) {
     if (!T.since) return;
-    const seg = Math.min((endAt || Date.now()) - T.since, 3600000); T.since = null;
-    if (seg > 3000 && S.user && S.feed) await record({ card_id: "seg-" + Date.now(), kind: "time", ms: Math.round(seg), points: 0 });
+    const start = T.since, end = endAt || Date.now();
+    const seg = Math.min(end - start, 3600000); T.since = null;
+    cardLeave(end);
+    if (seg > 3000 && S.user && S.feed && !S.preview)
+      await record({ card_id: "seg-" + Date.now(), kind: "time", ms: Math.round(seg), points: 0, answer: JSON.stringify({ why: why || "close", start: new Date(start).toISOString(), card: C.id }) });
   }
-  function timerStop() { clearInterval(T.iv); T.iv = null; timerFlush(); }
+  function timerStop(why) { clearInterval(T.iv); T.iv = null; timerFlush(null, why || "close"); }
+
+  /* Per-card active time (pauses, time away and idle time excluded). */
+  const C = { id: null, since: null, acc: {} };
+  const cKey = () => "brief-cardtime-" + (S.feed ? S.feed.feed_date : "");
+  try { Object.assign(C.acc, JSON.parse(localStorage.getItem("brief-cardtime-" + localDate()) || "{}")); } catch (e) { }
+  function cardLeave(endAt) {
+    if (C.id && C.since) { C.acc[C.id] = (C.acc[C.id] || 0) + Math.max(0, (endAt || Date.now()) - C.since); try { localStorage.setItem(cKey(), JSON.stringify(C.acc)); } catch (e) { } }
+    C.since = null;
+  }
+  function cardEnter(id) { if (C.id === id) { if (!C.since && T.since) C.since = Date.now(); return; } cardLeave(); C.id = id; C.since = T.since ? Date.now() : null; }
+  function cardActive(id) { return (C.acc[id] || 0) + (C.id === id && C.since ? Date.now() - C.since : 0); }
   function timerTick() {
     const pill = document.getElementById("timerPill");
-    if (T.since && Date.now() - T.lastAct > 180000) { const idleFrom = T.lastAct; timerFlush(idleFrom); timerPause(false, "Looks like you stepped away, so we paused the timer."); return; }
+    if (T.since && Date.now() - T.lastAct > 180000) { const idleFrom = T.lastAct; clearInterval(T.iv); T.iv = null; timerFlush(idleFrom, "idle"); timerPause(false, "Looks like you stepped away, so we paused the timer."); return; }
     if (!pill) return;
     const left = targetMs() - usedMs();
     pill.classList.toggle("over", left < 0);
@@ -328,7 +346,7 @@
     if (left < 0 && !T.warned) { T.warned = true; toast("That's your " + Math.round(targetMs() / 60000) + " minutes. Wrap up when you're ready."); }
   }
   function timerPause(manual, why) {
-    clearInterval(T.iv); T.iv = null; timerFlush(); T.paused = true;
+    clearInterval(T.iv); T.iv = null; timerFlush(null, "pause"); T.paused = true;
     const ov = el("div", { class: "pausebox", role: "dialog", "aria-modal": "true", "aria-label": "Paused" },
       el("div", { class: "pz-in" }, el("div", { class: "big", text: "☕" }), el("h3", { text: "Paused" }),
         el("p", { text: (why ? why + " " : "Take a break. ") + "Your timer is stopped at " + fmt(usedMs()) + " of " + Math.round(targetMs() / 60000) + " minutes." }),
@@ -582,7 +600,7 @@
     if (has(c.id, "check") || S.preview) return;
     const correct = i === c.check.a;
     const pts = correct ? PTS.right : PTS.wrong;
-    if (await record({ card_id: c.id, kind: "check", correct, choice: i, points: pts })) { gain(pts, correct ? "Correct!" : "Good try"); paintLearner(true); }
+    if (await record({ card_id: c.id, kind: "check", correct, choice: i, points: pts, ms: Math.min(3600000, Math.round(cardActive(c.id))) })) { gain(pts, correct ? "Correct!" : "Good try"); paintLearner(true); }
   }
 
   async function saveOpinion(c, text) {
@@ -592,7 +610,7 @@
 
   async function markRead(c) {
     if (has(c.id, "read")) return go(1);
-    const ms = Math.min(3600000, Date.now() - (S.opened[c.id] || Date.now()));
+    const ms = Math.min(3600000, Math.round(cardActive(c.id)) || (Date.now() - (S.opened[c.id] || Date.now())));
     const pts = ms >= 12000 ? PTS.readLong : PTS.readShort;
     if (!(await record({ card_id: c.id, kind: "read", ms, points: pts }))) return;
     const n = readCount(), total = S.feed.cards.length;
@@ -741,7 +759,10 @@
         el("div", { class: "stat" }, el("b", { text: st.total || 0 }), el("span", { text: "all-time points" }))),
       el("div", {}, el("div", { class: "eyebrow", text: "Last 14 days (points)" }),
         el("div", { class: "spark", role: "img", "aria-label": "Daily points for the last 14 days" }, days.map((d) => el("i", { class: d.pts ? "" : "zero", title: d.d + ": " + d.pts + " pts, " + d.read + " read", style: "height:" + Math.max(3, Math.round((64 * d.pts) / max)) + "px" }))),
-        el("div", { class: "sparkl" }, el("span", { text: days[0] ? prettyDate(days[0].d, { weekday: undefined, month: "short" }) : "" }), el("span", { text: "today" }))));
+        el("div", { class: "sparkl" }, el("span", { text: days[0] ? prettyDate(days[0].d, { weekday: undefined, month: "short" }) : "" }), el("span", { text: "today" }))),
+      (() => { const wk = days.slice(-7).filter((d) => d.mins > 0); if (!wk.length) return null;
+        const avg = wk.reduce((t, d) => t + d.mins, 0) / wk.length;
+        return el("p", { class: "small", style: "margin:0" }, "⏱ ", el("b", { text: avg.toFixed(1) + " min" }), " a day on average this week (" + wk.length + " day" + (wk.length === 1 ? "" : "s") + " active). Open See his answers for breaks and seconds per card."); })());
     if (rep) {
       card.append(el("div", {}, el("div", { class: "eyebrow", text: "Latest evaluation · " + prettyDate(rep.date, { weekday: "short", month: "short" }) }), el("div", { class: "report", text: rep.summary })));
       if (rep.knowledge) card.append(el("div", {}, el("div", { class: "eyebrow", text: "What his answers show about his knowledge" }), el("div", { class: "report", text: rep.knowledge })));
@@ -826,6 +847,43 @@
   const interestsEditor = (k) => listEditor(k, { field: "interests", rpc: "brief_admin_set_interests", arg: "p_items", noun: "interest", max: 30, title: "Interests",
     placeholder: "e.g. Formula 1, cooking, Minecraft", desc: "What " + k.name + " is into. Used as hooks and examples (about 30% of each brief), never to replace the core topics." });
 
+  /* Parent: how long the day's brief took, breaks and distractions, and seconds per card. */
+  function timingView(data) {
+    const evs = data.events || [], target = (data.feed.extras && data.feed.extras.target_minutes) || 10;
+    const segs = evs.filter((e) => e.kind === "time").map((e) => { let a = {}; try { a = JSON.parse(e.answer || "{}"); } catch (x) { } return { ms: e.ms || 0, why: a.why, start: a.start ? Date.parse(a.start) : null }; });
+    const active = segs.reduce((t, x) => t + x.ms, 0);
+    const box = el("article", { class: "card kid timing" }, el("div", { class: "eyebrow", text: "⏱ Time and focus" }));
+    if (!segs.length && !evs.some((e) => e.kind === "read")) { box.append(el("p", { class: "muted small", style: "margin:0", text: "Not started." })); return box; }
+    const starts = segs.filter((x) => x.start).map((x) => x.start), ends = segs.filter((x) => x.start).map((x) => x.start + x.ms);
+    const span = starts.length ? Math.max(...ends) - Math.min(...starts) : 0;
+    const count = (w) => segs.filter((x) => x.why === w).length;
+    const tfmt = (t) => new Date(t).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", timeZone: TZ });
+    const over = active / 60000 - target;
+    box.append(el("div", { class: "finstats" },
+      el("div", {}, el("b", { text: Math.round(active / 60000) + "m" }), el("span", { text: "active · target " + target })),
+      el("div", {}, el("b", { text: count("pause") }), el("span", { text: "breaks taken" })),
+      el("div", {}, el("b", { text: count("away") + count("idle") }), el("span", { text: "left app / idle" }))));
+    const lines = [];
+    if (starts.length) lines.push("Started " + tfmt(Math.min(...starts)) + ", last active " + tfmt(Math.max(...ends)) + " (" + Math.round(span / 60000) + " min from start to finish" + (span > active * 1.5 && span - active > 5 * 60000 ? ", so about " + Math.round((span - active) / 60000) + " min were breaks or time away" : "") + ").");
+    if (over > 2) lines.push("Took " + Math.round(over) + " min longer than the target.");
+    else if (active && over < -4) lines.push("Finished well under the target.");
+    if (lines.length) box.append(el("p", { class: "small", style: "margin:0", text: lines.join(" ") }));
+    const reads = {}; for (const e of evs) if (e.kind === "read") reads[e.card] = e.ms || 0;
+    const rows = data.feed.cards.map((c) => ({ c, ms: reads[c.id] }));
+    const maxMs = Math.max(60000, ...rows.map((r) => r.ms || 0));
+    const list = el("div", { class: "cardtimes" });
+    for (const r of rows) {
+      const sec = r.ms != null ? Math.round(r.ms / 1000) : null;
+      const long = r.c.type === "news" || r.c.type === "basics";
+      const flag = sec == null ? "not read" : sec < (long ? 15 : 8) ? "very fast: skimmed?" : sec > 180 ? "long: stuck or distracted?" : "";
+      list.append(el("div", { class: "ct" + (flag && sec != null ? " flag" : "") }, el("span", { class: "nm", text: r.c.title }),
+        el("span", { class: "t" }, el("i", { style: "width:" + (sec == null ? 0 : Math.max(2, Math.round((100 * r.ms) / maxMs))) + "%" })),
+        el("span", { class: "num s", text: sec == null ? "–" : sec + "s" }), flag ? el("span", { class: "fl", text: flag }) : null));
+    }
+    box.append(el("details", {}, el("summary", { text: "Seconds per card" }), list));
+    return box;
+  }
+
   /* Parent: one day of answers with the next morning's evaluation. */
   async function dayView(k, date) {
     const { data, error } = await sb.rpc("brief_admin_day", { p_user: k.user_id, p_date: date || localDate() });
@@ -840,9 +898,8 @@
       el("button", { class: "btn ghost", disabled: i < 0 || i >= days.length - 1, onclick: () => dayView(k, days[i + 1]) }, "‹ Earlier"),
       el("strong", { text: prettyDate(d, { weekday: "short", month: "short" }) }),
       el("button", { class: "btn ghost", disabled: i <= 0, onclick: () => dayView(k, days[i - 1]) }, "Later ›"));
-    const mins = (data.events || []).filter((e) => e.kind === "time").reduce((t, e) => t + (e.ms || 0), 0) / 60000;
     const nodes = [el("div", { class: "row", style: "display:flex;justify-content:space-between;align-items:center;margin-top:6px" }, back), el("section", { class: "hero" }, el("h1", { text: k.name + "'s answers" })), nav,
-      data.feed ? el("div", { class: "stale", text: "⏱ Time spent: " + (mins ? Math.round(mins) + " min" : "none recorded") + " · target " + ((data.feed.extras && data.feed.extras.target_minutes) || 10) + " min" }) : null];
+      data.feed ? timingView(data) : null];
     const r = data.report;
     if (r) {
       nodes.push(el("article", { class: "card kid" }, el("div", { class: "eyebrow", text: "Coach's evaluation (written " + prettyDate(r.date, { weekday: "short", month: "short" }) + ")" }),
@@ -983,7 +1040,7 @@
   // Coming back after a while (e.g. from a notification) refreshes the brief; a quick trip to a source link doesn't.
   let hiddenAt = 0;
   document.addEventListener("visibilitychange", () => {
-    if (document.visibilityState === "hidden") { hiddenAt = Date.now(); if (T.since) { clearInterval(T.iv); T.iv = null; timerFlush(); T.autoPaused = true; } return; }
+    if (document.visibilityState === "hidden") { hiddenAt = Date.now(); if (T.since) { clearInterval(T.iv); T.iv = null; timerFlush(null, "away"); T.autoPaused = true; } return; }
     if (T.autoPaused && S.view === "deck") { T.autoPaused = false; timerStart(); }
     if (hiddenAt && Date.now() - hiddenAt > 5 * 60 * 1000 && S.user && S.me && S.me.learner && !S.preview && $sheet.hidden) { S.view = "home"; route(); }
   });
