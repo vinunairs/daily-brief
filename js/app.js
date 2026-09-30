@@ -203,6 +203,7 @@
     document.body.classList.toggle("in-deck", S.view === "deck");
     if (S.view === "deck" && S.feed) return paintDeck(keepScroll);
     if (S.view === "review" && S.feed) return paintReview();
+    if (S.view === "progress") return paintProgress();
     paintHome();
   }
 
@@ -214,6 +215,91 @@
       <circle cx="40" cy="40" r="${r}" fill="none" stroke="var(--ring-track)" stroke-width="8"/>
       <circle cx="40" cy="40" r="${r}" fill="none" stroke="url(#rg)" stroke-width="8" stroke-linecap="round" stroke-dasharray="${c}" stroke-dashoffset="${c * (1 - p)}" transform="rotate(-90 40 40)" class="ring-fill"/>`;
     return s;
+  }
+
+  /* ---------- 📈 My progress ---------- */
+  function tabsNav(cur) {
+    const t = (id, label) => el("button", { class: "tab" + (cur === id ? " on" : ""), "aria-pressed": String(cur === id), onclick: () => { if (cur === id) return; S.view = id; paintLearner(); window.scrollTo(0, 0); } }, label);
+    return el("nav", { class: "tabs", "aria-label": "Sections" }, t("home", "🏠 Today"), t("progress", "📈 My progress"));
+  }
+  const TOPIC = { finance: "💰 Money", tech: "💻 Tech", health: "🩺 Health", science: "🔬 Science", climate: "🌎 Climate", world: "🌐 World", civics: "🏛️ Government", culture: "🎬 Culture", local: "🌴 Tampa Bay", basics: "📚 Foundations", reasoning: "🧩 Reasoning", street: "🛡️ Street smarts", skills: "🌱 Life skills" };
+  const lvlFromAcc = (r, n) => (!n ? 0 : n < 3 ? 1 : r / n >= 0.9 ? 5 : r / n >= 0.75 ? 4 : r / n >= 0.6 ? 3 : r / n >= 0.4 ? 2 : 1);
+  const lvlFromScore = (arr) => (!arr.length ? 0 : Math.min(5, 1 + Math.floor((arr.reduce((t, x) => t + x, 0) / arr.length / 3) * 4 + 1e-9)));
+  async function paintProgress() {
+    $app.replaceChildren(tabsNav("progress"), el("div", { class: "loading" }, el("span"), "Loading your progress…"));
+    const { data: P, error } = await sb.rpc("brief_my_progress");
+    if (S.view !== "progress") return;
+    if (error || !P) { $app.replaceChildren(tabsNav("progress"), el("div", { class: "card pad", text: error ? friendly(error) : "Your progress shows up after your first brief." })); return; }
+    const tp = {}; for (const t of P.topics || []) tp[t.topic] = t;
+    const sum = (keys, f) => keys.reduce((a, k) => a + ((tp[k] || {})[f] || 0), 0);
+    const NEWS = ["finance", "tech", "health", "science", "climate", "world", "civics", "culture", "local", "basics"];
+    const c = P.counts || {}, sc = P.scores || [], kid = P.kid || {}, ks = kid.skills || {};
+    const scoresOf = (k) => sc.filter((x) => x.kind === k).map((x) => Number(x.score));
+    const newsR = sum(NEWS, "right") + sum(NEWS, "right_prev") + (c.recall_right || 0), newsN = sum(NEWS, "n") + sum(NEWS, "n_prev") + (c.recall_n || 0);
+    const reaR = sum(["reasoning"], "right") + sum(["reasoning"], "right_prev"), reaN = sum(["reasoning"], "n") + sum(["reasoning"], "n_prev");
+    const stR = sum(["street"], "right") + sum(["street"], "right_prev") + (c.realfake_right || 0), stN = sum(["street"], "n") + sum(["street"], "n_prev") + (c.realfake_n || 0);
+    const md = c.missions_did || 0;
+    const skills = [
+      ["news", "📰", "News knowledge", lvlFromAcc(newsR, newsN), newsN ? newsR + " of " + newsN + " right (checks + recall)" : "Answer quick checks to level up"],
+      ["reasoning", "🧩", "Reasoning", lvlFromAcc(reaR, reaN), reaN ? reaR + " of " + reaN + " puzzles right" : "Solve puzzles to level up"],
+      ["street", "🛡️", "Street smarts", lvlFromAcc(stR, stN), stN ? stR + " of " + stN + " right (scams, fakes, fine print)" : "Street-smart cards and Real-or-fake level this up"],
+      ["explain", "💬", "Explaining your thinking", lvlFromScore(scoresOf("opinion")), scoresOf("opinion").length ? "Average take: " + (scoresOf("opinion").reduce((t, x) => t + x, 0) / scoresOf("opinion").length).toFixed(1) + " / 3" : "Write takes to level up"],
+      ["questions", "❓", "Asking good questions", lvlFromScore(scoresOf("question")), scoresOf("question").length ? "Average question: " + (scoresOf("question").reduce((t, x) => t + x, 0) / scoresOf("question").length).toFixed(1) + " / 3" : "Try the question challenge"],
+      ["speaking", "🎤", "Speaking", lvlFromScore(scoresOf("speak")), scoresOf("speak").length ? "Average spoken answer: " + (scoresOf("speak").reduce((t, x) => t + x, 0) / scoresOf("speak").length).toFixed(1) + " / 3" : "Try 'Say it out loud'"],
+      ["conversation", "🗣️", "Conversation confidence", md ? Math.min(5, 1 + Math.ceil(md / 2)) : 0, md ? md + " mission" + (md > 1 ? "s" : "") + " done" : "Do a conversation mission to level up"]]
+      .map(([k, i, n, l, sub]) => [k, i, n, Number(ks[k]) >= 1 && Number(ks[k]) <= 5 ? Number(ks[k]) : l, sub]);
+    const nodes = [tabsNav("progress"), el("section", { class: "hero2 slim prog" }, el("div", { class: "date", text: "Last 2 weeks" }), el("h1", { text: "Your progress" }),
+      el("p", { class: "muted small", style: "margin:0", text: "You're only compared with you. Every level goes up with practice." }))];
+    // You're great at / Level up next (written by the coach; falls back to the skill map)
+    const tried = skills.filter((x) => x[3] > 0).sort((a, b) => b[3] - a[3]);
+    const great = (Array.isArray(kid.great) && kid.great.length ? kid.great : tried.slice(0, 2).filter((x) => x[3] >= 3).map((x) => x[2] + " (level " + x[3] + ")")).slice(0, 3);
+    const next = (Array.isArray(kid.next) && kid.next.length ? kid.next : skills.filter((x) => x[3] < 3).slice(0, 2).map((x) => x[2] + ": " + x[4])).slice(0, 3);
+    nodes.push(el("div", { class: "gn" },
+      el("div", { class: "gcol good" }, el("b", { text: "⭐ You're great at" }), great.length ? el("ul", {}, great.map((t) => el("li", { text: t }))) : el("p", { class: "muted small", text: "Keep going. Your strengths show up after a few days." })),
+      el("div", { class: "gcol next" }, el("b", { text: "🚀 Level up next" }), next.length ? el("ul", {}, next.map((t) => el("li", { text: t }))) : el("p", { class: "muted small", text: "Everything's leveling up nicely." }))));
+    // Skill map
+    nodes.push(el("section", { class: "card pad skillmap" }, el("div", { class: "eyebrow", text: "Skill map" }),
+      skills.map(([k, ico, name, lv, sub]) => el("div", { class: "sk", title: sub },
+        el("span", { class: "ski", text: ico }), el("span", { class: "skn" }, el("b", { text: name }), el("span", { class: "muted small", text: sub })),
+        el("span", { class: "pips", role: "img", "aria-label": name + ": level " + (lv || 0) + " of 5" }, [1, 2, 3, 4, 5].map((i) => el("i", { class: i <= lv ? "on" : "" }))),
+        el("span", { class: "lvn num", text: lv ? "Lv " + lv : "–" })))));
+    // Topic accuracy this week (bars), with change vs the week before
+    const topics = (P.topics || []).filter((t) => t.n > 0).sort((a, b) => b.right / b.n - a.right / a.n);
+    if (topics.length) nodes.push(el("section", { class: "card pad" }, el("div", { class: "eyebrow", text: "Quick checks right, this week" }),
+      el("div", { class: "hbars" }, topics.map((t) => {
+        const pct = Math.round((100 * t.right) / t.n), prev = t.n_prev >= 2 ? Math.round((100 * t.right_prev) / t.n_prev) : null, d = prev == null ? null : pct - prev;
+        return el("div", { class: "hb", title: (TOPIC[t.topic] || t.topic) + ": " + t.right + " of " + t.n + " right" + (prev != null ? " (last week " + prev + "%)" : "") },
+          el("span", { class: "hbl", text: TOPIC[t.topic] || t.topic }), el("span", { class: "hbt" }, el("i", { style: "width:" + Math.max(pct, 3) + "%" })),
+          el("span", { class: "hbv num", text: pct + "%" }), el("span", { class: "hbd small" + (d > 0 ? " up" : ""), text: d == null ? "" : d > 0 ? "▲" + d : d < 0 ? "▼" + -d : "=" }));
+      })), el("p", { class: "muted small", style: "margin:6px 0 0", text: "▲ shows how much you went up since last week." })));
+    // Written answers: average score per day (0–3)
+    const byDay = {}; for (const x of sc) (byDay[x.d] = byDay[x.d] || []).push(Number(x.score));
+    const wd = Object.keys(byDay).sort().slice(-10);
+    if (wd.length) nodes.push(el("section", { class: "card pad" }, el("div", { class: "eyebrow", text: "Your written and spoken answers (score out of 3)" }),
+      cols(wd.map((d) => ({ d, v: byDay[d].reduce((t, x) => t + x, 0) / byDay[d].length, tip: prettyDate(d, { weekday: "short", month: "short" }) + ": " + (byDay[d].reduce((t, x) => t + x, 0) / byDay[d].length).toFixed(1) + " / 3 over " + byDay[d].length + " answers" })), 3, (v) => v.toFixed(1))));
+    // Minutes per day vs target
+    const days = (P.days || []).filter((d) => d.mins != null).slice(-10);
+    if (days.length) nodes.push(el("section", { class: "card pad" }, el("div", { class: "eyebrow", text: "Minutes per day (dashes = your target)" }),
+      cols(days.map((d) => ({ d: d.d, v: Number(d.mins) || 0, t: Number(d.target) || null, tip: prettyDate(d.d, { weekday: "short", month: "short" }) + ": " + Math.round(d.mins) + " min" + (d.target ? " (target " + d.target + ")" : "") })),
+        Math.max(15, ...days.map((d) => Math.max(Number(d.mins) || 0, Number(d.target) || 0))), (v) => Math.round(v) + "m")));
+    // Badges
+    const st = (S.stats && S.stats.streak) || 0;
+    const B = [["🔥", "3-day streak", st >= 3, "Do the brief 3 days in a row"], ["🔥🔥", "7-day streak", st >= 7, "7 days in a row"], ["🏁", "First full brief", (c.days_done || 0) >= 1, "Finish every card in a brief"],
+      ["🏅", "5 full briefs", (c.days_done || 0) >= 5, "Finish 5 briefs"], ["🎮", "Perfect game", (c.perfect_games || 0) >= 1, "Get every round right in a game"], ["🔎", "Fact checker", (c.feedback_read || 0) >= 5, "Read 5 feedback notes"],
+      ["🎯", "Mission done", md >= 1, "Complete a conversation mission"], ["❓", "Curious mind", (c.questions || 0) >= 5, "Ask 5 questions"], ["🎤", "Speaker", (c.speaks || 0) >= 3, "Say 3 answers out loud"], ["🧠", "Memory master", (c.recall_right || 0) >= 5, "Get 5 recall questions right"]];
+    const got = B.filter((b) => b[2]).length;
+    nodes.push(el("section", { class: "card pad" }, el("div", { class: "eyebrow", text: "Badges · " + got + " of " + B.length }),
+      el("div", { class: "badges" }, B.map(([i, n, ok, how]) => el("div", { class: "bdg" + (ok ? " on" : ""), title: ok ? n + ": earned!" : how }, el("span", { class: "bi", text: i }), el("b", { text: n }), el("span", { class: "muted small", text: ok ? "Earned!" : how }))))));
+    $app.replaceChildren(...nodes);
+  }
+  // Simple column chart: one hue, value label on the latest column, optional per-column target tick.
+  function cols(rows, max, fmtv) {
+    const wrap = el("div", { class: "cols", role: "img", "aria-label": rows.map((r) => r.tip).join("; ") });
+    rows.forEach((r, i) => wrap.append(el("div", { class: "col", title: r.tip },
+      el("span", { class: "cv num", text: i === rows.length - 1 || rows.length <= 4 ? fmtv(r.v) : "" }),
+      el("span", { class: "cbar" }, el("i", { style: "height:" + Math.max(2, Math.round((100 * r.v) / max)) + "%" }), r.t ? el("b", { class: "tgt", style: "bottom:" + Math.round((100 * r.t) / max) + "%" }) : null),
+      el("span", { class: "cl", text: new Date(r.d + "T12:00:00Z").toLocaleDateString("en-US", { weekday: "narrow", timeZone: "UTC" }) }))));
+    return wrap;
   }
 
   // ---- Home checklist helpers ----
@@ -275,6 +361,7 @@
         el("span", { class: "pts-pill", id: "ptsPill", text: (S.stats.today || 0) + " pts today" })),
       el("div", { class: "xp" }, el("i", { style: "width:" + lv.pct + "%" })),
       el("span", { class: "muted small", text: lv.next ? lv.toNext + " pts to " + lv.next : "Top level!" })));
+    if (!S.preview) nodes.unshift(tabsNav("home"));
     if (S.feed.feed_date !== today && !S.preview) nodes.push(el("div", { class: "stale", text: "Today's brief isn't ready yet, so here's the latest one (" + prettyDate(S.feed.feed_date, { weekday: "short", month: "short" }) + ")." }));
     const steps = [];
     if (rv.has) steps.push(stepRow(rv.done, "📝", "Review yesterday", rv.done ? "All caught up · tap to look again" : rv.sub, rv.total ? rv.doneN / rv.total : 0, () => openReview()));

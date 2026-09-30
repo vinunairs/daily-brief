@@ -40,6 +40,11 @@
             reports: [{ date: "2026-09-29", summary: "Rishabh read all 10 cards yesterday.", metrics: { accuracy_by_category: { finance: 1, tech: 0.5, health: 1, reasoning: 0.5, skills: 1 } } }],
             opinions: [{ date: "2026-09-28", card: "n2", answer: "Holding back soybeans keeps leverage for the next round.", score: 2 }] },
             { user_id: "u3", name: "Mom", band: "adult", age: 44, active: true, private: true, stats: { total: 12, week: 12, streak: 1, days: [] } }] };
+          if (fn === "brief_my_progress") return { data: { name: "Rishabh", band: "challenger", kid: { great: ["Tech news: 3 of 3 right", "Writing takes with a clear point"], next: ["Add one 'but' to each take", "Money words: yield and bonds"] },
+            days: [{ d: "2026-09-27", mins: 14, target: 12 }, { d: "2026-09-28", mins: 16.6, target: 12 }, { d: "2026-09-29", mins: 41.5, target: 12 }],
+            topics: [{ topic: "tech", n: 3, right: 3, n_prev: 2, right_prev: 1 }, { topic: "finance", n: 3, right: 2, n_prev: 2, right_prev: 1 }, { topic: "reasoning", n: 4, right: 2, n_prev: 0, right_prev: 0 }, { topic: "street", n: 2, right: 2, n_prev: 0, right_prev: 0 }],
+            scores: [{ d: "2026-09-28", kind: "opinion", score: 2 }, { d: "2026-09-28", kind: "opinion", score: 1 }, { d: "2026-09-28", kind: "question", score: 2 }, { d: "2026-09-28", kind: "speak", score: 1 }, { d: "2026-09-29", kind: "opinion", score: 3 }],
+            counts: { recall_n: 6, recall_right: 5, missions: 1, missions_did: 1, questions: 2, speaks: 1, feedback_read: 2, games: 1, perfect_games: 1, realfake_n: 8, realfake_right: 6, days_done: 2 } } };
           if (fn === "brief_admin_feed") return { data: feed };
           if (fn === "brief_admin_day") return { data: { date: feed.feed_date, days: [feed.feed_date], feed,
             events: [{ card: feed.cards[0].id, kind: "read", ms: 42000 }, { card: feed.cards[1].id, kind: "read", ms: 6000 },

@@ -43,6 +43,10 @@ Every card has **👍 More like this / 👎 Not for me** (he can change his mind
 - **🎮 Daily mini-game (60 seconds):** rotates between Real or fake? (spot the made-up headline), Higher or lower (numbers from the news and their interests), Word match (today's words) and Emoji decode (which story?). First play each day earns points; replays are for fun.
 - The morning job reads its instructions from `docs/daily-job.md` in this repo each run, so a push updates it.
 
+## 📈 My progress (learner tab)
+
+A second tab next to "Today" shows each learner their own last two weeks: **You're great at / Level up next** (written by the morning job in kid-friendly words), a **skill map** of seven skills at levels 1–5 (news knowledge, reasoning, street smarts, explaining your thinking, asking good questions, speaking, conversation confidence) computed from their checks, recall, games, scores and missions, **quick-check accuracy by topic** with the change from last week, **written/spoken answer scores** by day, **minutes per day** against the target, and **badges**. It only ever compares them with themselves. Data comes from `brief_my_progress()`, which returns only the signed-in learner's own data.
+
 ## Feedback to the learner
 
 - **Instantly:** quick checks and the recall quiz show right/wrong with an explanation. While typing a take or a question, or after recording a spoken answer, a checklist ticks off structure (point up front, a reason, the other side; open, specific, digs deeper; length and fillers) with a hint for anything missing, so he can improve it before saving.

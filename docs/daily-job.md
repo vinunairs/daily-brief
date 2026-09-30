@@ -62,8 +62,11 @@ Write the score with `update brief_events set score = N … and kind='speak'` (o
   "goal_coverage": {"<goal text, shortened>": <cards in last 7 days>},
   "plan": "the current 1–2 week plan in 2–3 sentences (same as the report's plan)",
   "basics_done": ["concepts covered by Foundations cards"],
+  "kid": {"great": ["2–3 short lines, second person, specific and true: what they're good at right now, with the evidence (e.g. \"You spot scams fast: 6 of 8 in Real or fake\")"],
+          "next": ["2–3 short lines: the next thing to level up, each with one concrete how (e.g. \"Add one 'but' sentence to every take\")"]},
   "updated": "TODAY" }
 ```
+`kid` is shown to the learner on their **My progress** tab, next to a skill map and charts the app draws from their own answers. Write it for them, in words for their band: encouraging, honest, specific, never a label or a comparison with anyone else, never mentioning Vinu or the parent report. "Next" items are framed as leveling up, not as weaknesses.
 Levels: children new to following the news start every level at 1 and stay there for their first two weeks unless the evidence is clearly strong (adults start at 2). Raise one step after 5+ attempts at ≥80% in that category; lower one step after 5+ attempts at ≤40%. For `social`, use missions tried instead: raise after 3+ missions tried in a week, lower (easier missions) after a week with none tried. With under a week of data, say so in `direction` and change little.
 
 **Calibrate the brief to this learner** (`profile.calib`). Each person gets their own size and shape of brief, tuned from how they actually use it, always in service of Vinu's goals. Store:
