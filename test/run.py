@@ -202,6 +202,19 @@ with sync_playwright() as pw:
     if "Done" not in p.locator(".deck-bar .grow").inner_text(): fails.append(("strict done after answers", p.locator(".deck-bar .grow").inner_text()))
     if errs: fails.append(("strict", errs))
 
+    # signed in by a link but no password yet → must create one
+    p, errs = page_for(b, "nopass")
+    p.wait_for_selector("form.auth #npw")
+    if "Pick a password" not in p.locator("form.auth h1").inner_text(): fails.append(("nopass screen", 0))
+    if errs: fails.append(("nopass", errs))
+
+    # signed in by a link but no password yet → must create one before seeing anything else
+    p, errs = page_for(b, "nopass")
+    p.wait_for_selector("form.auth #npw")
+    if "Pick a password" not in p.locator("form.auth h1").inner_text(): fails.append(("nopass screen", 0))
+    p.screenshot(path=str(OUT / "nopass.png"))
+    if errs: fails.append(("nopass", errs))
+
     # focus nudge after ~75 s with no interaction on a card
     ctx = b.new_context(viewport={"width": 390, "height": 844}, device_scale_factor=2)
     p = ctx.new_page(); nerrs = []

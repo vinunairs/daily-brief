@@ -27,7 +27,7 @@
     auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true, flowType: "implicit", storageKey: "daily-brief-auth" }
   });
   // Arriving from an invitation email: ask them to choose a password first.
-  const FROM_INVITE = /type=invite/.test(location.hash);
+  const FROM_INVITE = /type=(invite|recovery)/.test(location.hash);
   // A failed email link comes back as #error=...&error_code=otp_expired (expired or already used).
   const LINK_ERROR = /error_code=|error=access_denied/.test(location.hash) ? (/otp_expired|expired/i.test(decodeURIComponent(location.hash)) ? "expired" : "bad") : null;
   if (LINK_ERROR) history.replaceState(null, "", location.pathname + location.search);
@@ -90,10 +90,12 @@
       S.user = session ? session.user : null;
       $menu.hidden = !S.user;
       if (!S.user) return renderSignIn();
-      if (FROM_INVITE && !S.passwordSet) return renderNewPassword(true);
+      if ((FROM_INVITE || S.needPassword) && !S.passwordSet) return renderNewPassword(true);
       const { data: me, error } = await sb.rpc("brief_me");
       if (error) throw error;
       S.me = me || {};
+      // Signed in by an email link but never created a password (invite or reset): make them create one now.
+      if (S.me.has_password === false && !S.passwordSet) return renderNewPassword(true);
       if (S.me.admin && (S.parentMode || !(S.me.learner && S.me.learner.active))) return await renderParent();
       if (S.me.learner && S.me.learner.active) return await renderLearner();
       renderNoAccess();
@@ -102,7 +104,7 @@
     } finally { routing = false; }
   }
   sb.auth.onAuthStateChange((event) => {
-    if (event === "PASSWORD_RECOVERY") return renderNewPassword();
+    if (event === "PASSWORD_RECOVERY") { S.passwordSet = false; S.needPassword = true; return renderNewPassword(); }
     if (event === "SIGNED_IN" || event === "SIGNED_OUT") route();
   });
 
@@ -141,6 +143,8 @@
       if (error) msg.textContent = friendly(error); else { S.passwordSet = true; history.replaceState(null, "", location.pathname); toast(welcome ? "Welcome to Daily Brief!" : "Password updated"); route(); }
     } }, el("h1", { text: welcome ? "Welcome! Pick a password" : "Set a new password" }),
       welcome ? el("p", { class: "muted", text: "You'll use your email and this password to sign in to Daily Brief." }) : null,
+      S.user && S.user.email ? el("label", { class: "f" }, "Email", el("input", { type: "email", autocomplete: "username", value: S.user.email, readonly: true })) : null,
+      S.user && S.user.email ? el("label", { class: "f" }, "Email", el("input", { type: "email", autocomplete: "username", value: S.user.email, readonly: true })) : null,
       el("label", { class: "f", for: "npw" }, "New password (8+ characters)", pw), el("button", { class: "btn primary block", type: "submit" }, "Save password"), msg));
   }
   function renderNoAccess() {
@@ -1152,7 +1156,7 @@
       btn.disabled = false;
       if (error || (data && data.error)) { msg.textContent = (data && data.error) || "Couldn't add them. Try again."; return; }
       msg.textContent = data.status === "invited"
-        ? "Invitation sent to " + email.value.trim() + ". They open the email, pick a password, and their first brief arrives the next morning."
+        ? "Invitation sent to " + email.value.trim() + ". Ask them to open it within the hour (links expire) and pick a password. If it expires, open their card → Age and settings → \u201cCan't sign in?\u201d to email a new link or set a temporary password. Their first brief arrives the next morning."
         : "Added. They sign in with their existing account; their first brief arrives the next morning.";
       name.value = ""; email.value = ""; age.value = "";
       setTimeout(route, 2500);

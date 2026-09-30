@@ -31,6 +31,8 @@
           signOut: async () => ({}), resetPasswordForEmail: async () => ({}), updateUser: async () => ({})
         },
         rpc: async (fn, args) => {
+          if (fn === "brief_me" && mode === "nopass") return { data: { admin: false, has_password: false, learner: { name: "Asha", band: "adult", active: true } } };
+          if (fn === "brief_me" && mode === "nopass") return { data: { admin: false, has_password: false, learner: { name: "Asha", band: "adult", active: true } } };
           if (fn === "brief_me") return { data: mode === "parent" ? { admin: true, learner: null } : { admin: false, learner: { name: "Rishabh", band: "challenger", active: true, strict: mode === "strict" } } };
           if (fn === "brief_stats") return { data: { total: 0, week: 0, today: 0, streak: 0, days: [] } };
           if (fn === "brief_admin_overview") return { data: [{ user_id: "u2", name: "Rishabh", band: "challenger", grade: "10", active: true, notify: false,
