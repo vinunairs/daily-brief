@@ -588,3 +588,6 @@ input[type=number]{border:1.5px solid var(--line);border-radius:10px;padding:10p
 .strictrow input{width:20px;height:20px;margin-top:1px}
 .talk.nudge,.speak.nudge,.curious.nudge{animation:shake .4s;outline:2px solid var(--signal);outline-offset:4px;border-radius:12px}
 .toast{white-space:normal;max-width:calc(100vw - 32px);text-align:center}
+.linkerr{background:var(--signal-soft);border-radius:12px;padding:10px 12px;font-size:14.5px}
+.signhelp{display:grid;gap:8px;border-top:1px solid var(--line);padding-top:10px;margin-top:6px}
+.signhelp .addgoal{display:flex;gap:8px}

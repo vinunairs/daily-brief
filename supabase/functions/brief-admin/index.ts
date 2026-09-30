@@ -2,6 +2,8 @@
 // Called from the Parent view with the signed-in admin's access token.
 //   {action:"add", name, email, age}  → enroll an existing account, or invite a new one by email
 //   {action:"update", user_id, name?, age?, active?}  → change a learner's details (age sets the band)
+//   {action:"resend", user_id}  → email a fresh link: a new invite if they never finished setup, otherwise a password-reset link
+//   {action:"set_password", user_id, password}  → set a temporary password (and confirm the email) so they can sign in without the email link
 // New accounts need a Test Prep Hub invite code (the signup trigger requires one), so this creates a single-use code
 // and passes it in the invitation.
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
@@ -9,6 +11,7 @@ import { createClient } from "npm:@supabase/supabase-js@2.117.2";
 
 const SITE = "https://vinunairs.github.io/daily-brief/";
 const admin = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!, { auth: { persistSession: false } });
+const anon = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_ANON_KEY")!, { auth: { persistSession: false } });
 const CORS = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
@@ -39,6 +42,16 @@ function newCode() {
   const abc = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
   const b = crypto.getRandomValues(new Uint8Array(8));
   return Array.from(b, (x) => abc[x % abc.length]).join("");
+}
+
+// Only people enrolled in Daily Brief can be managed here.
+async function learnerUser(userId: string) {
+  if (!userId) return null;
+  const { data: l } = await admin.from("brief_learners").select("user_id").eq("user_id", userId).maybeSingle();
+  if (!l) return null;
+  const { data, error } = await admin.auth.admin.getUserById(userId);
+  if (error) return null;
+  return data.user;
 }
 
 Deno.serve(async (req) => {
@@ -87,6 +100,28 @@ Deno.serve(async (req) => {
     const { error } = await admin.from("brief_learners").update(patch).eq("user_id", body.user_id);
     if (error) return json({ error: error.message }, 500);
     return json({ ok: true, band: patch.band });
+  }
+
+  if (body.action === "resend") {
+    const user = await learnerUser(String(body.user_id || ""));
+    if (!user?.email) return json({ error: "That person isn't in Daily Brief." }, 404);
+    if (!user.email_confirmed_at) {
+      const { error } = await admin.auth.admin.inviteUserByEmail(user.email, { redirectTo: SITE, data: user.user_metadata || {} });
+      if (!error) return json({ ok: true, status: "invite", email: user.email });
+    }
+    const { error: re } = await anon.auth.resetPasswordForEmail(user.email, { redirectTo: SITE });
+    if (re) return json({ error: "Couldn't send the email: " + re.message }, 500);
+    return json({ ok: true, status: "reset", email: user.email });
+  }
+
+  if (body.action === "set_password") {
+    const password = String(body.password || "");
+    if (password.length < 8) return json({ error: "Use at least 8 characters." }, 400);
+    const user = await learnerUser(String(body.user_id || ""));
+    if (!user) return json({ error: "That person isn't in Daily Brief." }, 404);
+    const { error } = await admin.auth.admin.updateUserById(user.id, { password, email_confirm: true });
+    if (error) return json({ error: "Couldn't set the password: " + error.message }, 500);
+    return json({ ok: true, email: user.email });
   }
 
   return json({ error: "Unknown action" }, 400);

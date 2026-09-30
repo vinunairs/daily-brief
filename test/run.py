@@ -51,6 +51,10 @@ with sync_playwright() as pw:
     p, errs = page_for(b, "signedout")
     p.wait_for_selector("form.auth")
     p.screenshot(path=str(OUT / "signin.png"))
+    p.goto("http://127.0.0.1:8765/index.html#error=access_denied&error_code=otp_expired&error_description=Email+link+is+invalid+or+has+expired"); p.reload()
+    p.wait_for_selector("form.auth .linkerr")
+    if "expired" not in p.locator(".linkerr").inner_text(): fails.append(("expired link msg", 0))
+    p.screenshot(path=str(OUT / "signin-expired.png"))
     if errs: fails.append(("signin", errs))
 
     # learner flow: home -> deck through all cards -> quiz -> finish -> home mission check-in

@@ -28,6 +28,9 @@
   });
   // Arriving from an invitation email: ask them to choose a password first.
   const FROM_INVITE = /type=invite/.test(location.hash);
+  // A failed email link comes back as #error=...&error_code=otp_expired (expired or already used).
+  const LINK_ERROR = /error_code=|error=access_denied/.test(location.hash) ? (/otp_expired|expired/i.test(decodeURIComponent(location.hash)) ? "expired" : "bad") : null;
+  if (LINK_ERROR) history.replaceState(null, "", location.pathname + location.search);
 
   /* ---------- helpers ---------- */
   function el(tag, attrs, ...kids) {
@@ -116,15 +119,17 @@
       if (error) msg.textContent = /invalid/i.test(error.message) ? "That email and password don't match." : friendly(error);
     } },
       el("h1", { text: "Ten minutes. Every day." }),
-      el("p", { class: "muted", text: "The news that matters, a reasoning workout and a life skill, picked for you each morning. Sign in with your family account." }),
+      el("p", { class: "muted", text: "The news that matters, a reasoning workout and a life skill, picked for you each morning. Sign in with your email and the Daily Brief password you created." }),
+      LINK_ERROR ? el("div", { class: "linkerr" }, el("b", { text: LINK_ERROR === "expired" ? "That email link has expired." : "That email link didn't work." }),
+        el("span", { text: " Links only last about an hour and work once. Type your email below and tap \u201cEmail me a new link\u201d, then open the newest email and you'll be able to create your password." })) : null,
       el("label", { class: "f", for: "em" }, "Email", email),
       el("label", { class: "f", for: "pw" }, "Password", pw),
       btn, msg,
       el("button", { type: "button", class: "linkbtn", onclick: async () => {
-        if (!email.value.trim()) { msg.textContent = "Type your email first, then tap Forgot password."; return; }
+        if (!email.value.trim()) { msg.textContent = "Type your email first, then tap the link again."; email.focus(); return; }
         const { error } = await sb.auth.resetPasswordForEmail(email.value.trim(), { redirectTo: SITE });
-        msg.textContent = error ? friendly(error) : "Check your email for a reset link.";
-      } }, "Forgot password?"));
+        msg.textContent = error ? friendly(error) : "Sent! Open the newest email from Daily Brief within the hour and tap the link to create your password.";
+      } }, "First time here, or forgot your password? Email me a new link"));
     $app.replaceChildren(form);
   }
   function renderNewPassword(welcome) {
@@ -1083,6 +1088,23 @@
   const who = (k) => (k.age ? "Age " + k.age + " · " : "") + (BAND[k.band] || k.band) + (k.active === false ? " · paused" : "");
 
   // Edit age (which sets the reading level) and pause/resume.
+  // Help someone who can't get in: email a fresh link, or set a temporary password (no email needed).
+  function signInHelp(k) {
+    const out = el("span", { class: "muted small", role: "status" });
+    const tmp = el("input", { type: "text", minlength: "8", placeholder: "Temporary password (8+ characters)", autocomplete: "off", "aria-label": "Temporary password", style: "flex:1;min-width:0" });
+    const inv = (body) => sb.functions.invoke("brief-admin", { body: Object.assign({ user_id: k.user_id }, body) });
+    return el("div", { class: "signhelp" }, el("b", { text: "Can't sign in?" }),
+      el("div", { class: "actions" }, el("button", { class: "btn ghost", onclick: async () => {
+        out.textContent = "Sending…"; const { data, error } = await inv({ action: "resend" });
+        out.textContent = error || (data && data.error) ? (data && data.error) || "Couldn't send." : "Sent a new " + (data.status === "invite" ? "invitation" : "sign-in link") + " to " + data.email + ". It works for about an hour.";
+      } }, "Email a new link")),
+      el("div", { class: "addgoal" }, tmp, el("button", { class: "btn", onclick: async () => {
+        if (tmp.value.length < 8) { out.textContent = "Use at least 8 characters."; return; }
+        out.textContent = "Saving…"; const { data, error } = await inv({ action: "set_password", password: tmp.value });
+        out.textContent = error || (data && data.error) ? (data && data.error) || "Couldn't save." : "Done. " + k.name + " can sign in now as " + data.email + " with that password, then change it from the menu.";
+        if (!(error || (data && data.error))) tmp.value = "";
+      } }, "Set password")), out);
+  }
   function personSettings(k) {
     const age = el("input", { type: "number", min: "5", max: "100", value: k.age || "", "aria-label": "Age", style: "width:90px" });
     const msg = el("span", { class: "muted small", role: "status" });
@@ -1100,6 +1122,7 @@
           msg.textContent = error ? friendly(error) : e.target.checked ? "Every answer is now required." : "Answers other than the quick check are optional again."; } }),
         el("span", {}, el("b", { text: "Every answer required" }), el("span", { class: "muted small", text: " No skipping: takes, speaking, questions and reflections must be answered before moving on, cards go in order, and the quiz must be finished." }))),
       el("div", { class: "actions" }, el("button", { class: "btn ghost", onclick: () => call({ active: k.active === false }) }, k.active === false ? "Resume Daily Brief" : "Pause Daily Brief"), msg),
+      signInHelp(k),
       k.email ? el("p", { class: "muted small", style: "margin:0", text: "Signs in as " + k.email }) : null);
   }
 
@@ -1390,7 +1413,9 @@
     const isLearner = S.me && S.me.learner && S.me.learner.active && !S.preview;
     if (isLearner) panel.append(await notifySection());
     if (S.me && S.me.admin && !S.parentMode) panel.append(el("button", { class: "btn", onclick: () => { closeSheet(); S.parentMode = true; S.view = "home"; route(); } }, "👨‍👩‍👧 Parent view"));
-    panel.append(el("div", { style: "display:grid;gap:8px" }, el("div", { class: "eyebrow", text: "Account" }), el("p", { class: "small", style: "margin:0", text: "Signed in as " + (S.user && S.user.email) }), el("button", { class: "btn ghost", onclick: signOut }, "Sign out")));
+    panel.append(el("div", { style: "display:grid;gap:8px" }, el("div", { class: "eyebrow", text: "Account" }), el("p", { class: "small", style: "margin:0", text: "Signed in as " + (S.user && S.user.email) }),
+      el("button", { class: "btn ghost", onclick: () => { closeSheet(); renderNewPassword(); } }, "Change password"),
+      el("button", { class: "btn ghost", onclick: signOut }, "Sign out")));
   }
   $menu.addEventListener("click", openSettings);
 
