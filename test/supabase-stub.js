@@ -31,7 +31,7 @@
           signOut: async () => ({}), resetPasswordForEmail: async () => ({}), updateUser: async () => ({})
         },
         rpc: async (fn, args) => {
-          if (fn === "brief_me") return { data: mode === "parent" ? { admin: true, learner: null } : { admin: false, learner: { name: "Rishabh", band: "challenger", active: true } } };
+          if (fn === "brief_me") return { data: mode === "parent" ? { admin: true, learner: null } : { admin: false, learner: { name: "Rishabh", band: "challenger", active: true, strict: mode === "strict" } } };
           if (fn === "brief_stats") return { data: { total: 0, week: 0, today: 0, streak: 0, days: [] } };
           if (fn === "brief_admin_overview") return { data: [{ user_id: "u2", name: "Rishabh", band: "challenger", grade: "10", active: true, notify: false,
             goals: ["General knowledge", "Conversation confidence"], interests: ["Drumming", "Pokémon"], likes: [{ date: "2026-09-28", title: "US and China agree to regular talks on advanced AI", cat: "tech", v: 1 }], missions: [{ date: "2026-09-29", mission: "Ask one older neighbor a question.", result: 2 }], reflections_14d: 1,

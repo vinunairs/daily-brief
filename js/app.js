@@ -325,7 +325,7 @@
       el("span", { class: "num" }), el("span", { class: "sbody" }, el("span", { class: "st" }, ico + " " + title), el("span", { class: "ss", text: sub }),
         el("span", { class: "sbar" }, el("i", { style: "width:" + Math.round(100 * (pct || 0)) + "%" }))), el("span", { class: "arr", text: "→" }));
   }
-  function openDeckAt(k) { S.view = "deck"; S.painted = null; S.idx = Math.max(0, Math.min(k, deckItems().length - 1)); paintLearner(); window.scrollTo(0, 0); }
+  function openDeckAt(k) { k = Math.min(k, maxAllowed()); S.view = "deck"; S.painted = null; S.idx = Math.max(0, Math.min(k, deckItems().length - 1)); paintLearner(); window.scrollTo(0, 0); }
   function openReview() { S.view = "review"; try { localStorage.setItem("brief-review-seen-" + S.feed.feed_date, "1"); } catch (e) { } paintLearner(); window.scrollTo(0, 0); }
   function paintReview() {
     const back = () => { S.view = "home"; paintLearner(); window.scrollTo(0, 0); };
@@ -389,6 +389,7 @@
     const items = deckItems(), cards = S.feed.cards;
     let at = i >= cards.length ? items.findIndex((x) => x.t === "quiz") : items.findIndex((x) => x.t === "card" && x.c === cards[i]);
     if (at < 0) at = items.length - 1;
+    if (at > maxAllowed()) { toast("Cards go in order. Picking up where you left off."); at = maxAllowed(); }
     S.view = "deck"; S.painted = null; S.idx = Math.max(0, Math.min(at, items.length - 1));
     paintLearner(); window.scrollTo(0, 0);
   }
@@ -414,12 +415,14 @@
     const bar = el("div", { class: "deck-bar" });
     bar.append(el("button", { class: "nav", "aria-label": "Previous", disabled: S.idx === 0, onclick: () => go(-1) }, "‹"));
     if (it.t === "card") {
-      const c = it.c, done = has(c.id, "read"), checked = !c.check || has(c.id, "check");
+      const c = it.c, done = has(c.id, "read"), miss = S.preview ? [] : missingAnswers(c);
       if (S.preview || done) bar.append(el("button", { class: "btn signal grow", onclick: () => go(1) }, "Next →"));
-      else if (checked) bar.append(el("button", { class: "btn signal grow", onclick: () => markRead(c) }, "Done · next →"));
-      else bar.append(el("button", { class: "btn grow needcheck", onclick: nudgeCheck }, "Answer the quick check to continue ↑"));
+      else if (!miss.length) bar.append(el("button", { class: "btn signal grow", onclick: () => markRead(c) }, "Done · next →"));
+      else bar.append(el("button", { class: "btn grow needcheck", onclick: () => nudgeMissing(miss[0]) }, "Answer " + miss[0][0] + " ↑"));
     } else if (it.t === "quiz") {
-      bar.append(el("button", { class: "btn signal grow", onclick: () => go(1) }, "Finish →"));
+      const qleft = (S.feed.quiz || []).filter((q) => !has(q.id, "recall")).length;
+      if (strictOn() && qleft) bar.append(el("button", { class: "btn grow needcheck", onclick: () => toast("Answer all the recall questions to finish (" + qleft + " left).") }, "Answer the quiz to finish ↑"));
+      else bar.append(el("button", { class: "btn signal grow", onclick: () => go(1) }, "Finish →"));
     } else if (it.t === "fun" || it.t === "game") {
       const fin = it.t === "fun" ? has(it.f.id, "fun") : has("game", "game");
       bar.append(el("button", { class: "btn grow" + (fin || S.preview ? " signal" : " ghost"), onclick: () => go(1) }, fin || S.preview ? "Next →" : "Skip →"));
@@ -436,6 +439,32 @@
     if (it.t === "finish" && allDone() && !S.celebrated) { S.celebrated = true; confetti(); }
   }
 
+  // Strict mode (set per person in the Parent view): every answer on a card is required, no jumping ahead, quiz must be finished.
+  function strictOn() { return !!(S.me && S.me.learner && S.me.learner.strict) && !S.preview; }
+  function missingAnswers(c) {
+    const m = [];
+    if (c.check && !has(c.id, "check")) m.push(["the quick check", ".slide .check", "Answer the quick check first. It shows you understood."]);
+    if (!strictOn()) return m;
+    if (c.talk && !has(c.id, "opinion")) m.push(["your take", ".slide .talk:not(.reflect)", "Write your take first: 1–2 sentences, with a reason."]);
+    if (c.speak && !has(c.id, "speak")) m.push(["the speaking challenge", ".slide .speak", "Do the speaking challenge first (or type what you'd say)."]);
+    if (c.curious && !has(c.id, "question")) m.push(["the question challenge", ".slide .curious", "Write your question first."]);
+    if (c.reflect && !has(c.id, "reflect")) m.push(["the reflection", ".slide .reflect", "Answer the reflection question first."]);
+    return m;
+  }
+  function nudgeMissing(m) {
+    const box = document.querySelector(m[1]);
+    if (box) { box.scrollIntoView({ behavior: "smooth", block: "center" }); box.classList.remove("nudge"); void box.offsetWidth; box.classList.add("nudge"); }
+    toast(m[2]);
+  }
+  // Furthest deck position allowed in strict mode: nothing past the first unread card (or the quiz once all cards are read).
+  function maxAllowed() {
+    const items = deckItems();
+    if (!strictOn()) return items.length - 1;
+    const k = items.findIndex((x) => x.t === "card" && !has(x.c.id, "read"));
+    if (k >= 0) return k;
+    const q = items.findIndex((x) => x.t === "quiz" && !itemDone(x));
+    return q >= 0 ? q : items.length - 1;
+  }
   function nudgeCheck() {
     const box = document.querySelector(".slide .check");
     if (box) { box.scrollIntoView({ behavior: "smooth", block: "center" }); box.classList.remove("nudge"); void box.offsetWidth; box.classList.add("nudge"); }
@@ -525,6 +554,7 @@
     const items = deckItems();
     const ni = S.idx + d;
     if (ni < 0 || ni >= items.length) return;
+    if (d > 0 && ni > maxAllowed()) { const it = items[S.idx]; if (it && it.t === "card") { const m = missingAnswers(it.c); if (m.length) return nudgeMissing(m); } return toast("Finish this one first."); }
     if (items[ni].t === "quiz" && readCount() < Math.min(QUIZ_UNLOCK, S.feed.cards.length) && !S.preview) { toast("Read " + QUIZ_UNLOCK + " cards to unlock the quiz"); return; }
     S.idx = ni; S.dir = d; paintLearner();
   }
@@ -712,7 +742,8 @@
       const ms = t0 ? Math.min(Date.now() - t0, 600000) : 0;
       if (await record({ card_id: c.id, kind: "speak", answer: text.trim().slice(0, 800), ms: Math.round(ms), points: PTS.speak })) { gain(PTS.speak, "Nice delivery"); paintLearner(true); }
     });
-    box.append(el("div", { class: "actions" }, go, clock), out, ta, tipsBox, save,
+    const typeBtn = el("button", { class: "btn ghost small", hidden: !SR, onclick: () => { ta.hidden = false; typeBtn.hidden = true; ta.focus(); } }, "⌨️ Type it instead");
+    box.append(el("div", { class: "actions" }, go, clock, typeBtn), out, ta, tipsBox, save,
       el("div", { class: "muted small", text: "Aim for about 30 seconds: what happened, why it matters, what you think." }));
     return box;
   }
@@ -869,6 +900,8 @@
 
   async function markRead(c) {
     if (has(c.id, "read")) return go(1);
+    const miss = S.preview ? [] : missingAnswers(c);
+    if (miss.length) return nudgeMissing(miss[0]);
     const ms = Math.min(3600000, Math.round(cardActive(c.id)) || (Date.now() - (S.opened[c.id] || Date.now())));
     const pts = ms >= 12000 ? PTS.readLong : PTS.readShort;
     if (!(await record({ card_id: c.id, kind: "read", ms, points: pts }))) return;
@@ -1062,6 +1095,10 @@
     return el("details", { class: "goalsbox" }, el("summary", { text: "Age and settings" }),
       el("div", { class: "addgoal" }, el("label", { class: "f", style: "flex:1" }, "Age (sets the reading level)", age),
         el("button", { class: "btn", style: "align-self:end", onclick: () => call({ age: age.value === "" ? null : +age.value }) }, "Save age")),
+      el("label", { class: "strictrow" }, el("input", { type: "checkbox", checked: !!k.strict, onchange: async (e) => {
+          msg.textContent = "Saving…"; const { error } = await sb.rpc("brief_admin_set_strict", { p_user: k.user_id, p_strict: e.target.checked });
+          msg.textContent = error ? friendly(error) : e.target.checked ? "Every answer is now required." : "Answers other than the quick check are optional again."; } }),
+        el("span", {}, el("b", { text: "Every answer required" }), el("span", { class: "muted small", text: " No skipping: takes, speaking, questions and reflections must be answered before moving on, cards go in order, and the quiz must be finished." }))),
       el("div", { class: "actions" }, el("button", { class: "btn ghost", onclick: () => call({ active: k.active === false }) }, k.active === false ? "Resume Daily Brief" : "Pause Daily Brief"), msg),
       k.email ? el("p", { class: "muted small", style: "margin:0", text: "Signs in as " + k.email }) : null);
   }

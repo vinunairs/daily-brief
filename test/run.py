@@ -179,6 +179,25 @@ with sync_playwright() as pw:
     if not first_check["correct"] or first_check["choice"] != first["check"]["a"]: fails.append(("first check mapping", first_check))
     if errs: fails.append(("learner", errs))
 
+    # strict mode: every answer required, no jumping ahead, quiz must be finished
+    p, errs = page_for(b, "strict")
+    p.wait_for_selector(".steps")
+    p.locator(".lineup summary").click(); p.locator(".lineup .tile").nth(5).click()
+    p.wait_for_selector(".slide .shead")
+    if not p.locator(f"#c-{FEED['cards'][0]['id']}").count(): fails.append(("strict jump-ahead not blocked", 0))
+    c0 = FEED["cards"][0]
+    p.locator(".slide .opt").first.click(); p.wait_for_selector(".slide .opt.right")
+    if c0.get("talk") and "your take" not in p.locator(".deck-bar .grow").inner_text(): fails.append(("strict take required", p.locator(".deck-bar .grow").inner_text()))
+    p.screenshot(path=str(OUT / "strict.png"))
+    for sel, txt, btn in [(".talk:not(.reflect) textarea", "Reopening matters because gas prices hurt families.", "Save my take"), (".curious textarea", "Why did they choose this plan over the other one?", "Save my question")]:
+        if p.locator(".slide " + sel).count():
+            p.locator(".slide " + sel).fill(txt); p.locator(".slide button", has_text=btn).click(); p.wait_for_timeout(300)
+    if p.locator(".slide .speak").count() and "Done" not in p.locator(".deck-bar .grow").inner_text():
+        p.locator(".slide .speak button", has_text="Type it instead").click() if p.locator(".slide .speak button", has_text="Type it instead").is_visible() else None
+        p.locator(".slide .speak textarea").fill("Oil prices went up because the route closed, which matters for gas."); p.locator(".slide .speak button", has_text="Save").click(); p.wait_for_timeout(300)
+    if "Done" not in p.locator(".deck-bar .grow").inner_text(): fails.append(("strict done after answers", p.locator(".deck-bar .grow").inner_text()))
+    if errs: fails.append(("strict", errs))
+
     # focus nudge after ~75 s with no interaction on a card
     ctx = b.new_context(viewport={"width": 390, "height": 844}, device_scale_factor=2)
     p = ctx.new_page(); nerrs = []

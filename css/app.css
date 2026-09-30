@@ -584,3 +584,7 @@ input[type=number]{border:1.5px solid var(--line);border-radius:10px;padding:10p
 .bdg b{font-size:13.5px}
 .bdg.on{opacity:1;filter:none;border-color:var(--signal);background:var(--signal-soft)}
 @media (max-width:360px){.hb{grid-template-columns:96px 1fr 38px 30px}.gn{grid-template-columns:1fr}}
+.strictrow{display:grid;grid-template-columns:22px 1fr;gap:8px;align-items:start;font-size:14px;margin:8px 0}
+.strictrow input{width:20px;height:20px;margin-top:1px}
+.talk.nudge,.speak.nudge,.curious.nudge{animation:shake .4s;outline:2px solid var(--signal);outline-offset:4px;border-radius:12px}
+.toast{white-space:normal;max-width:calc(100vw - 32px);text-align:center}
