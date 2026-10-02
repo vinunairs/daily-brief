@@ -974,7 +974,8 @@
       const t0 = Date.now(); let score = 0, i = 0, over = false;
       const bar = el("div", { class: "gbar" }, el("i")), sc = el("span", { class: "gsc num", text: "0" }), stage = el("div", { class: "stage" });
       inner.replaceChildren(el("div", { class: "ghud" }, bar, sc), stage);
-      const tick = setInterval(() => { const left = GAME_MS - (Date.now() - t0); bar.firstChild.style.width = Math.max(0, (100 * left) / GAME_MS) + "%"; if (left <= 0) end(); }, 200);
+      // If they leave the game slide mid-round, stop quietly: an abandoned game is not a score.
+      const tick = setInterval(() => { if (!document.body.contains(inner)) { over = true; clearInterval(tick); return; } const left = GAME_MS - (Date.now() - t0); bar.firstChild.style.width = Math.max(0, (100 * left) / GAME_MS) + "%"; if (left <= 0) end(); }, 200);
       const hit = (ok, note, next) => { if (over) return; if (ok) { score++; sc.textContent = score; } stage.classList.remove("ok", "no"); void stage.offsetWidth; stage.classList.add(ok ? "ok" : "no");
         if (note) { stage.append(el("div", { class: "gnote", text: (ok ? "✓ " : "✗ ") + note })); setTimeout(next, ok ? 700 : 1500); } else setTimeout(next, 250); };
       const nextRound = () => { if (over) return; if (i >= items.length) return end(); renderRound(items[i++]); };
@@ -1007,7 +1008,7 @@
         stage.append(el("div", { class: "mgrid" }, L, R));
       }
       async function end() {
-        if (over) return; over = true; clearInterval(tick);
+        if (over || !document.body.contains(inner)) { over = true; clearInterval(tick); return; } over = true; clearInterval(tick);
         const total = items.length, pts = Math.min(40, score * PTS.gameEach + (score === total ? PTS.gameDone : 0));
         const first = !has("game", "game") && !S.preview;
         inner.replaceChildren(el("div", { class: "gover" }, el("div", { class: "big", text: score === total ? "🏆" : score >= total / 2 ? "🔥" : "💪" }),
